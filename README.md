@@ -8,43 +8,65 @@ A full-stack AI agent application that researches energy topics using CrewAI, po
 - Groq API Key (for LLM)
 - Tavily API Key (for Search)
 
-## Installation
+## Installation & Setup
 
-1.  **Clone/Open the Repository**
-2.  **Environment Setup**
-    I have already created a virtual environment for you in the `venv` folder.
-    
-    **Activate it:**
-    ```powershell
-    .\venv\Scripts\activate
+1.  **Clone the Repository**
+    ```bash
+    git clone https://github.com/pranjal1712/energymind-ai-agents.git
+    cd energymind-ai-agents
     ```
 
-    **Install Dependencies (if not already installed)**
+2.  **Create Virtual Environment**
+    It's recommended to use a virtual environment to manage dependencies.
+    ```bash
+    # Windows
+    python -m venv venv
+    .\venv\Scripts\activate
+
+    # Mac/Linux
+    python3 -m venv venv
+    source venv/bin/activate
+    ```
+
+3.  **Install Dependencies**
     ```bash
     pip install -r requirements.txt
     ```
-3.  **Environment Variables**
-    Copy `.env.example` to `.env` and fill in your keys:
-    ```bash
-    cp .env.example .env
-    # Edit .env file
-    ```
+
+4.  **Environment Variables**
+    This project requires API keys for LLM and Search.
+    
+    - Copy the example environment file:
+      ```bash
+      # Windows (PowerShell)
+      cp .env .env.example
+
+      # Mac/Linux
+      cp .env.example .env
+      ```
+    - Open `.env` and add your API keys:
+      ```env
+      GROQ_API_KEY=your_key_here
+      TAVILY_API_KEY=your_key_here
+      ```
 
 ## Running the Application
 
-You need to run the Backend and Frontend in separate terminals.
+You need to run the **Backend** and **Frontend** in two separate terminals.
 
 ### 1. Start the Backend (FastAPI)
+Open a new terminal, activate the venv, and run:
 ```bash
 uvicorn backend.main:app --reload
 ```
-The API will run at `http://localhost:8000`.
+The API will start at `http://localhost:8000`.
 
 ### 2. Start the Frontend (Streamlit)
+Open another terminal, activate the venv, and run:
 ```bash
 streamlit run frontend/app.py
 ```
-The UI will open in your browser at `http://localhost:8501`.
+The UI will automatically open in your browser at `http://localhost:8501`.
 
 ## Features
 - **Project Structure**: Clean separation of Backend and Frontend.
@@ -54,6 +76,6 @@ The UI will open in your browser at `http://localhost:8501`.
 - **UI**: Simple Streamlit interface.
 
 ## Tech Stack
-- **Backend**: FastAPI, CrewAI, Pydantic
+- **Backend**: FastAPI, Langchain, Pydantic
 - **Frontend**: Streamlit
-- **Tools**: SerperDev (Search), Python-Slugify
+- **Tools**: Tavily (Search), Python-Slugify
