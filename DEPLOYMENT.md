@@ -57,3 +57,38 @@ Your app needs API keys to work.
 - **Build Failed?** Check the **Logs** tab in your Space.
 - **Application Error?** Ensure you added the API Keys in Settings correctly.
 - **"Sleep"?** Free Spaces "sleep" after 48 hours of inactivity. Just open the URL to wake it up (takes a few seconds).
+
+## Steps for Render + Streamlit Cloud (Option 4)
+
+This method splits the app: **Backend on Render** and **Frontend on Streamlit Cloud**.
+
+### Part A: Deploy Backend to Render
+1.  Sign up at [render.com](https://render.com).
+2.  Click **"New +"** -> **"Web Service"**.
+3.  Connect your GitHub repo.
+4.  Settings:
+    - **Name**: `energymind-backend` (or unique name)
+    - **Runtime**: Python 3
+    - **Build Command**: `pip install -r requirements.txt`
+    - **Start Command**: `uvicorn backend.main:app --host 0.0.0.0 --port $PORT`
+5.  **Environment Variables** (Add these in "Advanced" section):
+    - `PYTHON_VERSION`: `3.10.12`
+    - `GROQ_API_KEY`: (Your key)
+    - `TAVILY_API_KEY`: (Your key)
+6.  Click **"Create Web Service"**.
+7.  Wait for deploy. Copy the **Service URL** (e.g., `https://energymind-backend.onrender.com`).
+
+### Part B: Deploy Frontend to Streamlit Cloud
+1.  Sign up at [share.streamlit.io](https://share.streamlit.io).
+2.  Click **"New app"**.
+3.  Select your GitHub repo.
+4.  Settings:
+    - **Main file path**: `frontend/app.py`
+5.  **Advanced Settings** -> **Secrets**:
+    Add your Backend URL here like this:
+    ```toml
+    API_URL = "https://energymind-backend.onrender.com"
+    ```
+6.  Click **"Deploy"**.
+
+Your frontend will now talk to your Render backend!
