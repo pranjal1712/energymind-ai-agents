@@ -1,0 +1,27 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environment
+.env
+venv/
+env/
+
+# IDEs
+.vscode/
+.idea/
+
+# Streamlit
+.streamlit/
+secrets.toml
+
+# Testing
+.pytest_cache/
+test_output.txt
+test_results.log
+test_users.db
+
+# OS
+.DS_Store
+Thumbs.db
