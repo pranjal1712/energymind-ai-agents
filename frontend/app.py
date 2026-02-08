@@ -3,8 +3,11 @@ import requests
 import streamlit.components.v1 as components
 from auth import login_user, signup_user, get_current_user_info, get_user_history
 
+import os
+
 # ================= CONFIG =================
-API_URL = "http://localhost:8000"
+# Use environment variable for API URL in deployment
+API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(
     page_title="EnergyMind AI",
