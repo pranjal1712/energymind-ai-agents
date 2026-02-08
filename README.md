@@ -1,3 +1,12 @@
+---
+title: EnergyMind AI
+emoji: ⚡
+colorFrom: blue
+colorTo: indigo
+sdk: docker
+pinned: false
+---
+
 # Autonomous Energy Researcher Agent
 
 A full-stack AI agent application that researches energy topics using CrewAI, powered by FastAPI (Backend) and Streamlit (Frontend).
