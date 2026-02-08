@@ -21,3 +21,9 @@ bcrypt
 pytest
 httpx
 
+
+langchain-groq
+tiktoken
+watchdog
+
+gunicorn
