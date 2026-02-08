@@ -2,6 +2,8 @@
 
 A full-stack AI agent application that researches energy topics using CrewAI, powered by FastAPI (Backend) and Streamlit (Frontend).
 
+[![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/pranjal1712/Energymind-ai)
+
 ## Prerequisites
 
 - Python 3.10+
