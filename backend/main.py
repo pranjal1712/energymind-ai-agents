@@ -24,6 +24,16 @@ init_db()
 
 app = FastAPI(title="Autonomous Energy Researcher API")
 
+from fastapi.middleware.cors import CORSMiddleware
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Allows all origins
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # Allow optional auth for guest mode
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
@@ -147,8 +157,8 @@ async def run_research_endpoint(
     db: Session = Depends(get_db)
 ):
     try:
-        # 🔹 Run LangChain research
-        research_output = run_full_research(request.query)
+        # 🔹 Run LangChain research with optional thread_id
+        research_output = run_full_research(request.query, request.thread_id)
         result_text = research_output["report"]
         suggestions = research_output.get("suggestions", [])
 
@@ -173,7 +183,10 @@ async def run_research_endpoint(
         )
 
     except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(status_code=500, detail=str(e))
+
 
 # =========================
 # History Routes

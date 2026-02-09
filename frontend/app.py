@@ -16,6 +16,8 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+import uuid
+
 # ================= SESSION STATE INIT =================
 if "messages" not in st.session_state:
     st.session_state.messages = []
@@ -25,9 +27,14 @@ if "user" not in st.session_state:
     st.session_state.user = None
 if "chat_count" not in st.session_state:
     st.session_state.chat_count = 0
+# Session ID for Short-Term Memory
+if "session_id" not in st.session_state:
+    st.session_state.session_id = str(uuid.uuid4())
+
 # Pages: 'login', 'signup', 'forgot_password', 'chat', 'profile'
 if "current_page" not in st.session_state:
     st.session_state.current_page = "chat"
+
 
 # ================= HELPER FUNCTIONS =================
 def navigate_to(page):
@@ -45,6 +52,18 @@ def logout():
 def inject_custom_style():
     st.markdown(f"""
     <style>
+    /* Hide Streamlit Default Elements (Footer, Menu, Header) */
+    #MainMenu {{visibility: hidden;}}
+    footer {{visibility: hidden;}}
+    header {{visibility: hidden;}}
+    [data-testid="stDecoration"] {{display: none;}}
+    
+    /* Hide specific deployment/github icons */
+    .stDeployButton {{display: none;}}
+    [data-testid="stToolbar"] {{visibility: hidden !important;}}
+    [data-testid="stHeader"] {{visibility: hidden !important;}}
+    .viewerBadge_container__1QSob {{display: none !important;}}
+
     /* =========================================
        NATIVE HEADER BUTTONS POSITIONING
        ========================================= */
@@ -621,15 +640,18 @@ def chat_page():
 
         with st.spinner("🤖 Research agents are working..."):
             try:
-                headers = {}
                 if st.session_state.auth_token:
                     headers = {"Authorization": f"Bearer {st.session_state.auth_token}"}
                 
+                # Use session_id as thread_id for short-term memory
+                payload = {"query": prompt, "thread_id": st.session_state.session_id}
+                
                 response = requests.post(
                     f"{API_URL}/research",
-                    json={"query": prompt},
+                    json=payload,
                     headers=headers
                 )
+
 
                 if response.status_code == 200:
                     data = response.json()
