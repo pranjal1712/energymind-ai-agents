@@ -10,11 +10,46 @@ import os
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(
-    page_title="EnergyMind AI",
+    page_title="EnerGpt",
     layout="wide",
     page_icon="⚡",
     initial_sidebar_state="expanded"
 )
+
+# ================= SPLINE BACKGROUND =================
+def add_spline_background():
+    # Embed Spline Viewer using HTML component
+    # We use a script tag to load the viewer and the <spline-viewer> web component
+    spline_html = """
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <script type="module" src="https://unpkg.com/@splinetool/viewer@1.9.72/build/spline-viewer.js"></script>
+    <style>
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background: transparent;
+        }
+        spline-viewer {
+            width: 100%;
+            height: 100%;
+        }
+    </style>
+    </head>
+    <body>
+        <spline-viewer url="https://prod.spline.design/UFjQXJOFaagav2ug/scene.splinecode"></spline-viewer>
+    </body>
+    </html>
+    """
+    # Render with a height to ensure it takes space in DOM before CSS moves it
+    components.html(spline_html, height=500, scrolling=True)
+
+# Add background immediately
+add_spline_background()
 
 import uuid
 
@@ -55,61 +90,51 @@ def inject_custom_style():
     /* Hide Streamlit Default Elements (Footer, Menu, Header) */
     #MainMenu {{visibility: hidden;}}
     footer {{visibility: hidden;}}
-    header {{visibility: hidden;}}
     [data-testid="stDecoration"] {{display: none;}}
     
     /* Hide specific deployment/github icons */
     .stDeployButton {{display: none;}}
-    [data-testid="stToolbar"] {{visibility: hidden !important;}}
-    [data-testid="stHeader"] {{visibility: hidden !important;}}
+    [data-testid="stToolbar"] {{
+        visibility: visible !important;
+        background-color: transparent !important;
+    }}
+    [data-testid="stHeader"] {{
+        visibility: visible !important;
+        background-color: transparent !important;
+    }}
     .viewerBadge_container__1QSob {{display: none !important;}}
 
-    /* =========================================
-       NATIVE HEADER BUTTONS POSITIONING
-       ========================================= */
-    /* Target the container holding the top buttons */
-    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"] {{
-        background: transparent !important;
-    }}
-    
-    /* We will wrap the buttons in a container with a specific class in Python if possible,
-       but standard st.columns is easier. We'll target via specific gap styling if needed. */
-       
-    /* 
-       CRITICAL: Fixed Position Container for Header Buttons 
-       We use a specific container query or class if we could, but here we'll 
-       position the FIRST styled container found at the top. 
-    */
-    
-    .header-container {{
-        position: fixed;
-        top: 20px;
-        right: 30px;
-        z-index: 999999;
-        background: rgba(0, 0, 0, 0.3);
-        backdrop-filter: blur(10px);
-        padding: 5px 15px;
-        border-radius: 12px;
-        border: 1px solid rgba(255, 255, 255, 0.1);
-        display: flex;
-        gap: 10px;
-    }}
-    
-    .header-container button {{
+    /* FORCE VISIBILITY OF SIDEBAR TOGGLE - Natural Position */
+    [data-testid="stSidebarCollapsedControl"] {{
+        display: flex !important;
+        visibility: visible !important;
+        z-index: 1000000 !important;
+        color: white !important;
         background-color: rgba(255, 255, 255, 0.1) !important;
-        color: white !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
-        border-radius: 8px !important;
-        padding: 0.25rem 0.75rem !important;
-        font-size: 0.85rem !important;
-        min-height: auto !important;
-        height: auto !important;
+        width: 44px !important;
+        height: 44px !important;
+        border-radius: 12px !important;
+        border: 1px solid rgba(255,255,255,0.2) !important;
+        backdrop-filter: blur(5px) !important;
+        transition: all 0.3s ease !important;
+        cursor: pointer !important;
+        pointer-events: auto !important;
+        margin-top: 10px !important; 
+        margin-left: 10px !important;
     }}
     
-    .header-container button:hover {{
-        background-color: rgba(255, 255, 255, 0.3) !important;
+    [data-testid="stSidebarCollapsedControl"]:hover {{
+        background-color: rgba(255, 255, 255, 0.2) !important;
         border-color: white !important;
-        color: white !important;
+        transform: scale(1.05) !important;
+    }}
+    
+    /* Ensure the icon inside is visible */
+    [data-testid="stSidebarCollapsedControl"] svg {{
+        fill: white !important;
+        stroke: white !important;
+        width: 24px !important;
+        height: 24px !important;
     }}
 
     /* =========================================
@@ -122,37 +147,58 @@ def inject_custom_style():
         background-image: none !important;
     }}
 
-    /* 2. The header (where the hamburger menu lives) */
-    header[data-testid="stHeader"] {{
-        background-color: transparent !important;
-        visibility: visible !important;
-        z-index: 1000 !important;
+    /* Target any iframe that might be the Spline viewer */
+    iframe {{
+        position: fixed !important;
+        top: 0 !important;
+        left: 0 !important;
+        width: 100vw !important;
+        height: 100vh !important;
+        z-index: 0 !important; /* Move to 0 to be sure it's not behind body */
+        border: none !important;
+        pointer-events: none !important; /* Allow clicking through to app */
+    }}
+
+    /* Ensure app content is above the background */
+    .stApp > header {{
+        z-index: 1 !important;
     }}
     
-    /* 3. The main view container (scrolling area) */
+    .stApp > div {{
+        z-index: 1 !important;
+    }}
+
+    /* 2. The main view container (scrolling area) */
     div[data-testid="stAppViewContainer"] {{
         background-color: transparent !important;
         background-image: none !important;
     }}
 
-    /* 4. The block container (where your content lives) */
+    /* 3. The block container (where your content lives) */
     div[data-testid="stAppViewBlockContainer"] {{
         background-color: transparent !important;
     }}
     
-    /* 5. The inner content block (centering constraint) */
+    /* 4. The inner content block (centering constraint) */
     .block-container {{
         background-color: transparent !important;
         padding-top: 2rem !important; /* Main content padding */
         max-width: 1000px;
     }}
 
-    /* 6. Sidebar transparency & Positioning */
+    /* 5. Sidebar transparency & Positioning */
+    /* 5. Sidebar transparency & Positioning */
     section[data-testid="stSidebar"] {{
-        background-color: rgba(0, 0, 0, 0.6) !important;
-        backdrop-filter: blur(20px);
+        background-color: rgba(0, 0, 0, 0.1) !important; 
+        background: rgba(0, 0, 0, 0.1) !important;
+        backdrop-filter: blur(1px);
         border-right: 1px solid rgba(255, 255, 255, 0.1);
         z-index: 99999 !important;
+    }}
+
+    section[data-testid="stSidebar"] > div {{
+        background-color: transparent !important;
+        background: transparent !important;
     }}
 
     /* Force text color in sidebar */
@@ -160,13 +206,13 @@ def inject_custom_style():
         color: white !important;
     }}
 
-    /* Move sidebar content up: Target the inner block container of sidebar */
+    /* Move sidebar content up */
     section[data-testid="stSidebar"] div[data-testid="stVerticalBlock"] {{
         padding-top: 1rem !important;
         gap: 0.5rem !important;
     }}
     
-    /* 7. Bottom Container - FORCE TRANSPARENCY */
+    /* 6. Bottom Container - FORCE TRANSPARENCY */
     div[data-testid="stBottom"],
     div[data-testid="stBottom"] > div {{
         background-color: transparent !important;
@@ -189,7 +235,7 @@ def inject_custom_style():
     }}
     
     .stChatInput textarea {{
-        background-color: transparent !important; /* TRANSPARENT BACKGROUND FOR CHAT INPUT */
+        background-color: transparent !important;
         color: #eeeeee !important;
         caret-color: #ffffff !important;
         border: 1px solid rgba(255, 255, 255, 0.2) !important;
@@ -216,12 +262,10 @@ def inject_custom_style():
         box-shadow: 0 4px 15px rgba(0,0,0,0.3) !important;
     }}
     
-    /* Enhance readability of text inside messages */
     [data-testid="stChatMessage"] [data-testid="stMarkdownContainer"] p {{
         font-size: 1.05rem !important;
         line-height: 1.6 !important;
     }}
-
 
     /* =========================================
        LOGIN PAGE STYLING (Dark Glassmorphism)
@@ -255,67 +299,6 @@ def inject_custom_style():
     }}
 
     /* =========================================
-       UI CLEANUP & VISIBILITY
-       ========================================= */
-    
-    /* HIDE DEPLOY BUTTON */
-    .stDeployButton {{
-        display: none !important;
-    }}
-    
-    /* HIDE MENU (Three Dots) */
-    [data-testid="stMainMenu"] {{
-        display: none !important;
-    }}
-    
-    /* HIDE DECORATION (Rainbow Line) - Make transparent instead of remove */
-    [data-testid="stDecoration"] {{
-        opacity: 0 !important;
-        pointer-events: none !important;
-    }}
-    
-    /* Toolbar: visible for layout but transparent background */
-    [data-testid="stToolbar"] {{
-        background: transparent !important;
-        opacity: 1 !important; 
-    }}
-    
-    /* FORCE VISIBILITY OF SIDEBAR TOGGLE - Natural Position */
-    [data-testid="stSidebarCollapsedControl"] {{
-        display: flex !important;
-        align-items: center !important;
-        justify-content: center !important;
-        visibility: visible !important;
-        z-index: 99999999 !important;
-        color: white !important;
-        background-color: rgba(0, 0, 0, 0.4) !important;
-        width: 44px !important;
-        height: 44px !important;
-        border-radius: 12px !important;
-        border: 1px solid rgba(255,255,255,0.2) !important;
-        backdrop-filter: blur(5px) !important;
-        transition: all 0.3s ease !important;
-        cursor: pointer !important;
-        pointer-events: auto !important;
-        margin-top: 10px !important; 
-        margin-left: 10px !important;
-    }}
-    
-    [data-testid="stSidebarCollapsedControl"]:hover {{
-        background-color: rgba(255, 255, 255, 0.2) !important;
-        border-color: white !important;
-        transform: scale(1.05) !important;
-    }}
-    
-    /* Ensure the icon inside is visible */
-    [data-testid="stSidebarCollapsedControl"] svg {{
-        fill: white !important;
-        stroke: white !important;
-        width: 24px !important;
-        height: 24px !important;
-    }}
-    
-    /* =========================================
        RESPONSIVE DESIGN ADAPTERS
        ========================================= */
     @media (max-width: 768px) {{
@@ -323,13 +306,11 @@ def inject_custom_style():
             font-size: 1.5rem !important;
             margin-top: -10px !important;
         }}
-        
         div[data-testid="stAppViewBlockContainer"] {{
             padding-top: 2rem !important;
             padding-left: 1rem !important;
             padding-right: 1rem !important;
         }}
-        
         .stChatInput {{
             bottom: 10px !important;
         }}
@@ -341,55 +322,10 @@ def inject_custom_style():
             margin-top: -20px !important;
         }}
     }}
-
-    footer {{visibility: hidden;}}
-    #MainMenu {{visibility: hidden;}}
     </style>
     """, unsafe_allow_html=True)
 
-    spline_js = """
-    <script>
-        document.addEventListener("DOMContentLoaded", function() {
-            const parentDoc = window.parent.document;
-            
-            // Backup: Inject Custom CSS into Parent Head
-            const style = parentDoc.createElement("style");
-            style.innerHTML = `
-                .stApp { background: transparent !important; }
-                .stApp > header { background: transparent !important; }
-                div[data-testid="stAppViewContainer"] { background: transparent !important; }
-                div[data-testid="stAppViewBlockContainer"] { background: transparent !important; }
-                div[data-testid="stBottom"] { background: transparent !important; }
-                .stChatInput { background: transparent !important; }
-                /* Transparency for decoration instead of display:none */
-                div[data-testid="stDecoration"] { opacity: 0 !important; pointer-events: none !important; }
-                .stDeployButton { display: none !important; }
-                [data-testid="stMainMenu"] { display: none !important; }
-            `;
-            parentDoc.head.appendChild(style);
-
-            // Inject Spline Viewer
-            if (!parentDoc.querySelector("script[src*='spline-viewer.js']")) {
-                const script = parentDoc.createElement("script");
-                script.type = "module";
-                script.src = "https://unpkg.com/@splinetool/viewer@1.9.0/build/spline-viewer.js";
-                parentDoc.head.appendChild(script);
-            }
-
-            // Inject Viewer Element
-            if (!parentDoc.querySelector("spline-viewer")) {
-                const viewer = parentDoc.createElement("spline-viewer");
-                viewer.setAttribute("url", "https://prod.spline.design/L3s51KMAGYQorp9G/scene.splinecode");
-                Object.assign(viewer.style, {
-                    position: "fixed", top: "0", left: "0", width: "100%", height: "100%", zIndex: "-1"
-                });
-                parentDoc.body.appendChild(viewer);
-            }
-        });
-    </script>
-    """
-    components.html(spline_js, height=0, width=0)
-
+# Call the function to inject styles
 inject_custom_style()
 
 # ================= HEADER BUTTONS CONTAINER =================
@@ -687,7 +623,7 @@ def render_sidebar():
         # Custom Header with larger size and moved up - Using White/Silver gradient to match background text
         st.markdown("""
             <h1 class='sidebar-title' style='text-align: left; margin-bottom: 20px; background: -webkit-linear-gradient(45deg, #ffffff, #a0a0a0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
-                ⚡ EnergyMind AI
+                ⚡ EnerGpt
             </h1>
         """, unsafe_allow_html=True)
         

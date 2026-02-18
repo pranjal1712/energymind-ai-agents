@@ -340,7 +340,10 @@ def run_full_research(query: str, thread_id: str = None) -> dict:
     """
     Entry point for the backend logic.
     """
-    config = {"configurable": {"thread_id": thread_id}} if thread_id else None
+    config = {
+        "configurable": {"thread_id": thread_id if thread_id else "default_thread"}
+    }
+
     
     initial_state = {"query": query}
     

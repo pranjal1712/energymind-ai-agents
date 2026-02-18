@@ -8,10 +8,11 @@ from slugify import slugify
 from typing import List, Optional
 from pydantic import BaseModel
 
-from .models import ResearchRequest, ResearchResponse
-from .research_chain import run_full_research
-from .database import engine, Base, get_db, User, ChatHistory, init_db
-from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from models import ResearchRequest, ResearchResponse
+from research_chain import run_full_research
+from research_chain import run_full_research
+from database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db
+from auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
 
 # Load env variables
 load_dotenv()
@@ -157,12 +158,25 @@ async def run_research_endpoint(
     db: Session = Depends(get_db)
 ):
     try:
+        # 🔹 check in cache (Knowledge Base DB)
+        cached_data = check_in_cache(request.query, db)
+        if cached_data:
+            return ResearchResponse(
+                query=request.query,
+                result=cached_data["result"],
+                file_path="Served from Database Cache", 
+                suggestions=[] 
+            )
+
         # 🔹 Run LangChain research with optional thread_id
         research_output = run_full_research(request.query, request.thread_id)
         result_text = research_output["report"]
         suggestions = research_output.get("suggestions", [])
 
-        # 🔹 Save to knowledge_base
+        # 🔹 Save to knowledge_base (DB)
+        save_to_knowledge_base(request.query, result_text, db)
+        
+        # 🔹 Save to file as backup (optional, keeping for now)
         file_path = save_result_to_file(request.query, result_text)
 
         # 🔹 Save to DB if authenticated
@@ -218,6 +232,42 @@ Date: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
         f.write(content.strip())
 
     return file_path
+
+def save_to_knowledge_base(query: str, content: str, db: Session):
+    try:
+        slug = slugify(query)
+        # Check if exists (shouldn't if check_in_cache was called, but safety first)
+        existing = db.query(KnowledgeBase).filter(KnowledgeBase.slug == slug).first()
+        if not existing:
+            kb_entry = KnowledgeBase(
+                query=query,
+                slug=slug,
+                content=content
+            )
+            db.add(kb_entry)
+            db.commit()
+    except Exception as e:
+        print(f"Error saving to KB DB: {e}")
+
+def check_in_cache(query: str, db: Session):
+    """
+    Check if the query result already exists in the knowledge base DB.
+    Returns dict with result if found, else None.
+    """
+    try:
+        slug = slugify(query)
+        kb_entry = db.query(KnowledgeBase).filter(KnowledgeBase.slug == slug).first()
+        
+        if kb_entry:
+            return {
+                "result": kb_entry.content,
+                "file_path": "db"
+            }
+    except Exception as e:
+        print(f"Error reading cache from DB: {e}")
+        return None
+            
+    return None
 
 if __name__ == "__main__":
     import uvicorn
