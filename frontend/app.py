@@ -41,12 +41,12 @@ def add_spline_background():
     </style>
     </head>
     <body>
-        <spline-viewer url="https://prod.spline.design/UFjQXJOFaagav2ug/scene.splinecode"></spline-viewer>
+    <spline-viewer url="https://prod.spline.design/nnaIrCmaYX6w0pvd/scene.splinecode"></spline-viewer>
     </body>
     </html>
     """
-    # Render with a height to ensure it takes space in DOM before CSS moves it
-    components.html(spline_html, height=500, scrolling=True)
+    # Render with 1px height, CSS will handle full-screen expansion
+    components.html(spline_html, height=100)
 
 # Add background immediately
 add_spline_background()
@@ -141,49 +141,36 @@ def inject_custom_style():
        FORCE TRANSPARENCY ON ALL STREAMLIT LAYERS
        ========================================= */
     
-    /* 1. The main app container */
-    .stApp {{
+    /* Force transparency on main containers */
+    .stApp, div[data-testid="stAppViewContainer"], div[data-testid="stAppViewBlockContainer"] {{
         background-color: transparent !important;
-        background-image: none !important;
+        background: transparent !important;
     }}
 
-    /* Target any iframe that might be the Spline viewer */
+    html, body {{
+        background-color: #000000 !important;
+    }}
+
+    /* 3. Spline Background Iframe Styling */
     iframe {{
         position: fixed !important;
         top: 0 !important;
         left: 0 !important;
         width: 100vw !important;
         height: 100vh !important;
-        z-index: 0 !important; /* Move to 0 to be sure it's not behind body */
+        z-index: -1 !important; 
         border: none !important;
-        pointer-events: none !important; /* Allow clicking through to app */
-    }}
-
-    /* Ensure app content is above the background */
-    .stApp > header {{
-        z-index: 1 !important;
-    }}
-    
-    .stApp > div {{
-        z-index: 1 !important;
-    }}
-
-    /* 2. The main view container (scrolling area) */
-    div[data-testid="stAppViewContainer"] {{
-        background-color: transparent !important;
-        background-image: none !important;
-    }}
-
-    /* 3. The block container (where your content lives) */
-    div[data-testid="stAppViewBlockContainer"] {{
-        background-color: transparent !important;
+        pointer-events: none !important;
+        display: block !important;
+        transform: scale(1.4) !important;
+        transform-origin: center center !important;
     }}
     
     /* 4. The inner content block (centering constraint) */
     .block-container {{
         background-color: transparent !important;
         padding-top: 2rem !important; /* Main content padding */
-        max-width: 1000px;
+        max-width: 1100px;
     }}
 
     /* 5. Sidebar transparency & Positioning */
@@ -238,7 +225,7 @@ def inject_custom_style():
         background-color: transparent !important;
         color: #eeeeee !important;
         caret-color: #ffffff !important;
-        border: 1px solid rgba(255, 255, 255, 0.2) !important;
+        border: 2px solid rgba(255, 255, 255, 0.2) !important;
         border-radius: 24px !important;
         padding: 14px 20px !important;
         box-shadow: none !important;
