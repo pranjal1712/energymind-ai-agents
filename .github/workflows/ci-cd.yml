@@ -31,7 +31,7 @@ jobs:
     - name: Build, Tag, and Push Image to ECR
       env:
         ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: energymind-ai
+        REPOSITORY: energymind-ai # Aap GitHub Secret 'ECR_REPOSITORY_NAME' bhi use kar sakte hain
         IMAGE_TAG: ${{ github.sha }}
       run: |
         docker build -t $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$REPOSITORY:latest .
