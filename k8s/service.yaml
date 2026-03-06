@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: energymind-svc
+spec:
+  type: LoadBalancer
+  selector:
+    app: energymind
+  ports:
+  - name: streamlit
+    protocol: TCP
+    port: 80
+    targetPort: 7860
+  - name: fastapi
+    protocol: TCP
+    port: 8000
+    targetPort: 8000

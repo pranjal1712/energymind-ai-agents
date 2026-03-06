@@ -1,0 +1,40 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: energymind-deployment
+  labels:
+    app: energymind
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: energymind
+  template:
+    metadata:
+      labels:
+        app: energymind
+    spec:
+      containers:
+      - name: energymind
+        image: <IMAGE_PLACEHOLDER> # Will be updated by CI/CD
+        ports:
+        - containerPort: 7860 # Streamlit
+        - containerPort: 8000 # FastAPI
+        env:
+        - name: GROQ_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: energymind-secrets
+              key: GROQ_API_KEY
+        - name: TAVILY_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: energymind-secrets
+              key: TAVILY_API_KEY
+        resources:
+          limits:
+            cpu: "500m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
