@@ -16,7 +16,8 @@ spec:
     spec:
       containers:
       - name: energymind
-        image: <IMAGE_PLACEHOLDER> # Will be updated by CI/CD
+        image: <YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_REGION>.amazonaws.com/energymind-app:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 7860 # Streamlit
         - containerPort: 8000 # FastAPI
