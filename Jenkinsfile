@@ -9,9 +9,9 @@ pipeline {
     }
 
     stages {
-        stage('Checkout') {
+        stage('Debug Workspace') {
             steps {
-                git branch: 'main', url: 'https://github.com/pranjal1712/energymind-ai-agents.git'
+                sh 'ls -la'
             }
         }
 
