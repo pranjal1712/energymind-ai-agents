@@ -5,7 +5,7 @@ metadata:
   labels:
     app: energymind
 spec:
-  replicas: 2
+  replicas: 1
   selector:
     matchLabels:
       app: energymind
@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: energymind
-        image: <YOUR_AWS_ACCOUNT_ID>.dkr.ecr.<YOUR_REGION>.amazonaws.com/energymind-app:latest
-        imagePullPolicy: Always
+        image: energymind-app:latest
+        imagePullPolicy: Never
         ports:
         - containerPort: 7860 # Streamlit
         - containerPort: 8000 # FastAPI
