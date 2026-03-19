@@ -10,7 +10,7 @@ import os
 API_URL = os.getenv("API_URL", "http://localhost:8000")
 
 st.set_page_config(
-    page_title="EnerGpt",
+    page_title="EnergyMind AI",
     layout="wide",
     page_icon="⚡",
     initial_sidebar_state="expanded"
