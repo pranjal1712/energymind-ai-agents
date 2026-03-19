@@ -3,7 +3,7 @@ kind: Service
 metadata:
   name: energymind-svc
 spec:
-  type: LoadBalancer
+  type: NodePort
   selector:
     app: energymind
   ports:
@@ -11,7 +11,9 @@ spec:
     protocol: TCP
     port: 8501
     targetPort: 7860
+    nodePort: 30001
   - name: fastapi
     protocol: TCP
     port: 8000
     targetPort: 8000
+    nodePort: 30000

@@ -1,40 +1,65 @@
-name: CI/CD for EnergyMind (AWS)
+name: CI/CD - Build, Push & Deploy to K3s
 
 on:
   push:
     branches: [ "main" ]
 
 jobs:
-  build-and-deploy:
+  # ============================================
+  # JOB 1: Build Docker Image & Push to DockerHub
+  # ============================================
+  build-and-push:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout Code
-      uses: actions/checkout@v4
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Set up Python
-      uses: actions/setup-python@v4
-      with:
-        python-version: '3.10'
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-    - name: Configure AWS Credentials
-      uses: aws-actions/configure-aws-credentials@v4
-      with:
-        aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        aws-region: ${{ secrets.AWS_REGION }}
+      - name: Build & Push Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/energymind-app:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/energymind-app:${{ github.sha }}
 
-    - name: Login to Amazon ECR
-      id: login-ecr
-      uses: aws-actions/amazon-ecr-login@v2
+  # ============================================
+  # JOB 2: Deploy to K3s on EC2
+  # ============================================
+  deploy:
+    runs-on: ubuntu-latest
+    needs: build-and-push   # Ye tab chalega jab Job 1 complete ho
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    - name: Build, Tag, and Push Image to ECR
-      env:
-        ECR_REGISTRY: ${{ steps.login-ecr.outputs.registry }}
-        REPOSITORY: energymind-ai # Aap GitHub Secret 'ECR_REPOSITORY_NAME' bhi use kar sakte hain
-        IMAGE_TAG: ${{ github.sha }}
-      run: |
-        docker build -t $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG -t $ECR_REGISTRY/$REPOSITORY:latest .
-        docker push $ECR_REGISTRY/$REPOSITORY:$IMAGE_TAG
-        docker push $ECR_REGISTRY/$REPOSITORY:latest
+      - name: Create K8s Secrets File on EC2 & Deploy
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            # 1. Create/Update the Kubernetes Secret with API Keys
+            kubectl create secret generic energymind-secrets \
+              --from-literal=GROQ_API_KEY="${{ secrets.GROQ_API_KEY }}" \
+              --from-literal=TAVILY_API_KEY="${{ secrets.TAVILY_API_KEY }}" \
+              --dry-run=client -o yaml | kubectl apply -f -
 
+            # 2. Apply the latest K8s manifests
+            cd /home/ubuntu/energymind-ai-agents
+            git pull origin main
+            kubectl apply -f k8s/deployment.yaml
+            kubectl apply -f k8s/service.yaml
+
+            # 3. Force a rolling restart to pull the new :latest image
+            kubectl rollout restart deployment/energymind-deployment
+
+            # 4. Wait for rollout to complete
+            kubectl rollout status deployment/energymind-deployment --timeout=120s

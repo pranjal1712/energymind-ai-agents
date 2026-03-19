@@ -25,3 +25,6 @@ test_users.db
 # OS
 .DS_Store
 Thumbs.db
+
+# Kubernetes Secrets (contain API keys - never commit!)
+k8s/secrets.yaml

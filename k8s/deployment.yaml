@@ -16,8 +16,8 @@ spec:
     spec:
       containers:
       - name: energymind
-        image: energymind-app:latest
-        imagePullPolicy: Never
+        image: pranjal1712/energymind-app:latest
+        imagePullPolicy: Always
         ports:
         - containerPort: 7860 # Streamlit
         - containerPort: 8000 # FastAPI
@@ -34,8 +34,8 @@ spec:
               key: TAVILY_API_KEY
         resources:
           limits:
-            cpu: "500m"
-            memory: "512Mi"
+            cpu: "1000m"
+            memory: "1Gi"
           requests:
-            cpu: "200m"
-            memory: "256Mi"
+            cpu: "250m"
+            memory: "512Mi"
