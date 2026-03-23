@@ -610,8 +610,7 @@ def render_sidebar():
         # Custom Header with larger size and moved up - Using White/Silver gradient to match background text
         st.markdown("""
             <h1 class='sidebar-title' style='text-align: left; margin-bottom: 20px; background: -webkit-linear-gradient(45deg, #ffffff, #a0a0a0); -webkit-background-clip: text; -webkit-text-fill-color: transparent;'>
-                ⚡ EnerGpt
-            </h1>
+                ⚡ Energymind            </h1>
         """, unsafe_allow_html=True)
         
         # Navigation / Actions
