@@ -2,11 +2,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { User, Mail, Settings, LogOut, ChevronRight } from 'lucide-react';
 
-function Profile() {
+function Profile({ onLogout }) {
+  const navigate = useNavigate();
   const user = {
-    name: "John Doe",
-    email: "john.doe@example.com",
+    name: "Shahzaib",
+    email: "shahzaib@example.com",
     joined: "March 2026"
+  };
+
+  const handleLogout = () => {
+    onLogout();
+    navigate('/login');
   };
 
   return (
@@ -54,7 +60,7 @@ function Profile() {
               <div className="item-text">Privacy & Security</div>
               <ChevronRight size={20} className="chevron" />
             </div>
-            <div className="settings-item premium-card glass clickable logout">
+            <div className="settings-item premium-card glass clickable logout-prominent" onClick={handleLogout}>
               <div className="item-icon"><LogOut size={20} /></div>
               <div className="item-text">Log Out</div>
               <ChevronRight size={20} className="chevron" />

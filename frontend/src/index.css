@@ -2,14 +2,15 @@
   --primary: #6366f1;
   --primary-hover: #4f46e5;
   --bg-dark: #0f172a;
-  --bg-card: #1e293b;
+  --bg-card: rgba(30, 41, 59, 0.7);
   --text-main: #f8fafc;
   --text-muted: #94a3b8;
-  --border: #334155;
+  --border: rgba(255, 255, 255, 0.1);
   --accent: #10b981;
   --error: #ef4444;
-  --transition: all 0.3s ease;
-  --radius: 12px;
+  --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  --radius: 16px;
+  --sidebar-width: 260px;
 }
 
 * {
@@ -86,8 +87,40 @@ input {
 
 /* Glassmorphism utility */
 .glass {
-  background: rgba(30, 41, 59, 0.7);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+  background: rgba(30, 41, 59, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Background Patterns */
+.bg-radial {
+  background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+}
+
+.bg-grid {
+  background-color: #0f172a;
+  background-image: 
+    linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+
+/* Card Fold Effect */
+.fold-corner {
+  position: relative;
+  overflow: hidden;
+}
+
+.fold-corner::before {
+  content: "";
+  position: absolute;
+  top: -1px;
+  right: -1px;
+  width: 40px;
+  height: 40px;
+  background: linear-gradient(135deg, transparent 50%, rgba(255, 255, 255, 0.1) 50%, rgba(255, 255, 255, 0.2));
+  border-bottom-left-radius: 8px;
+  box-shadow: -2px 2px 5px rgba(0, 0, 0, 0.3);
+  z-index: 10;
 }
