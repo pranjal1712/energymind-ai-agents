@@ -19,6 +19,8 @@ class User(Base):
     username = Column(String, unique=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
+    chats_count = Column(Integer, default=0)
+    limit_reached_at = Column(DateTime, nullable=True)
     
     chats = relationship("ChatHistory", back_populates="owner")
 

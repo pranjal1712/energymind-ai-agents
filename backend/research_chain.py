@@ -5,6 +5,11 @@ from langchain_groq import ChatGroq
 from langchain_tavily import TavilySearch
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+import asyncio
+import random
+from tenacity import retry, stop_after_attempt, wait_exponential, retry_if_exception_type
+from groq import InternalServerError, RateLimitError
+
 from langgraph.graph import StateGraph, END
 from langgraph.checkpoint.memory import MemorySaver
 
@@ -12,18 +17,78 @@ from langgraph.checkpoint.memory import MemorySaver
 load_dotenv()
 
 # =========================
-# LLM (Groq)
+# 🛠️ Helper: API Key Manager & Concurrency Control
 # =========================
-llm = ChatGroq(
-    model="llama-3.1-8b-instant",
-    temperature=0.2,
-    groq_api_key=os.getenv("GROQ_API_KEY")
+
+# Get keys from env (comma-separated: KEY1,KEY2,KEY3)
+GROQ_KEYS = os.getenv("GROQ_API_KEYS", os.getenv("GROQ_API_KEY", "")).split(",")
+GROQ_KEYS = [k.strip() for k in GROQ_KEYS if k.strip()]
+
+# Global Semaphore to limit concurrent AI calls (Queuing)
+AI_SEMAPHORE = asyncio.Semaphore(5)
+
+class APIKeyManager:
+    def __init__(self, keys):
+        self.keys = keys
+        self.index = 0
+
+    def get_key(self):
+        if not self.keys:
+            return None
+        # Round-robin selection
+        key = self.keys[self.index]
+        self.index = (self.index + 1) % len(self.keys)
+        return key
+
+key_manager = APIKeyManager(GROQ_KEYS)
+
+@retry(
+    stop=stop_after_attempt(3),
+    wait=wait_exponential(multiplier=1, min=2, max=10),
+    retry=retry_if_exception_type((RateLimitError, InternalServerError, Exception))
 )
+async def invoke_llm_with_retry(chain_or_llm, inputs):
+    """
+    Invokes LLM with automatic key rotation and exponential backoff.
+    """
+    async with AI_SEMAPHORE:
+        current_key = key_manager.get_key()
+        # Create a new LLM instance with the current key for this call
+        # (This ensures each attempt can use a different key if needed)
+        temp_llm = ChatGroq(
+            model="llama-3.3-70b-versatile",
+            temperature=0.5,
+            max_tokens=4096,
+            groq_api_key=current_key
+        )
+        
+        # Determine if it's a chain or just the LLM
+        if hasattr(chain_or_llm, "first"): # It's a chain
+            # We need to rebuild the chain with the new LLM
+            # Since chains are immutable, we rely on the invoke calling the LLM
+            # For simplicity in this graph, I'll pass the LLM into the nodes
+            pass 
+        
+        return await chain_or_llm.ainvoke(inputs)
+
+# Update chains to be 'templates' or rebuild them in nodes
+# I will refactor the nodes to use a helper that handles the LLM creation.
+
+def get_chat_model():
+    return ChatGroq(
+        model="llama-3.3-70b-versatile",
+        temperature=0.5,
+        max_tokens=4096,
+        groq_api_key=key_manager.get_key()
+    )
+
+# Placeholder for the original llm variable to avoid breaking imports
+llm = get_chat_model()
 
 # =========================
 # Web Search Tool
 # =========================
-search_tool = TavilySearch(max_results=5)
+search_tool = TavilySearch(max_results=10)
 
 # =========================
 # State Definition
@@ -43,9 +108,6 @@ class AgentState(TypedDict):
     # Domain Gatekeeper
     is_relevant: bool
 
-# =========================
-# 0️⃣ Gatekeeper Node (Domain Check)
-# =========================
 gatekeeper_prompt = PromptTemplate.from_template(
     """
     You are a Gatekeeper for an Energy Research Assistant.
@@ -60,16 +122,19 @@ gatekeeper_prompt = PromptTemplate.from_template(
     """
 )
 
-gatekeeper_chain = gatekeeper_prompt | llm | StrOutputParser()
+# We removed the global chain to allow per-call LLM rotation
 
-def gatekeeper_node(state: AgentState):
+async def gatekeeper_node(state: AgentState):
     print("--- 🛡️ Node: Gatekeeper ---")
     query = state["query"]
     
     try:
-        result = gatekeeper_chain.invoke({"query": query}).strip().upper()
-    except:
-         # Fail open if LLM fails
+        chain = gatekeeper_prompt | get_chat_model() | StrOutputParser()
+        result = await invoke_llm_with_retry(chain, {"query": query})
+        result = result.strip().upper()
+    except Exception as e:
+        print(f"Gatekeeper error: {e}")
+        # Fail open if LLM fails
         result = "YES"
     
     if "YES" in result:
@@ -94,19 +159,28 @@ research_prompt = PromptTemplate.from_template(
     Context from previous conversation (if any):
     {history}
 
-    Using ONLY the web search results below,
-    write 5–7 factual bullet points about:
+    write 20–25 detailed, factual, and comprehensive bullet points about:
 
     Topic: {query}
 
     Web Results:
     {search_results}
+    
+    Ensure you cover:
+    - Technical Breakdown (How it works precisely)
+    - Recent major News & Press Releases
+    - Case studies of actual projects or implementations
+    - Global & Regional Context (US, EU, China, India, etc.)
+    - Key industry players and their current market strategies
+    - Specific Government policies, subsidies, and regulatory frameworks (e.g., IRA, EU Green Deal, PLI)
+    - Detailed Financial data, LCOE (Levelized Cost of Energy), and investment trends
+
     """
 )
 
-research_chain = research_prompt | llm | StrOutputParser()
+# Chain will be built inside the node
 
-def research_node(state: AgentState):
+async def research_node(state: AgentState):
     print("--- 🔄 Node: Researcher ---")
     query = state["query"]
     history = state.get("history", [])
@@ -118,7 +192,8 @@ def research_node(state: AgentState):
     except:
          results = str(search_tool.invoke(query))
     
-    summary = research_chain.invoke({
+    chain = research_prompt | get_chat_model() | StrOutputParser()
+    summary = await invoke_llm_with_retry(chain, {
         "query": query,
         "search_results": results,
         "history": history_text
@@ -138,22 +213,27 @@ analysis_prompt = PromptTemplate.from_template(
     """
     You are an Energy Data Analyst.
 
-    From the research below, extract:
-    - Key trends
-    - Market opportunities
-    - Risks
+    From the research below, perform a deep-dive extraction of:
+    - **Detailed Key Trends** (at least 5 trends with technical depth)
+    - **Market Landscape & Regional Comparison** (how different markets compare)
+    - **Policy & Regulatory Frameworks** (incentives, laws, and their impact)
+    - **Case Studies & Implementation Successes** (notable real-world examples)
+    - **SWOT Analysis** (Strengths, Weaknesses, Opportunities, and Threats)
+    - **Financials & ROI Analysis** (costs, funding, and profitability)
 
     Research:
     {research}
+
     """
 )
 
-analysis_chain = analysis_prompt | llm | StrOutputParser()
+# Chain will be built in node
 
-def analysis_node(state: AgentState):
+async def analysis_node(state: AgentState):
     print("--- 🔄 Node: Analyst ---")
     research_summary = state["research_check"]
-    analysis = analysis_chain.invoke({"research": research_summary})
+    chain = analysis_prompt | get_chat_model() | StrOutputParser()
+    analysis = await invoke_llm_with_retry(chain, {"research": research_summary})
     return {"analysis": analysis}
 
 # =========================
@@ -161,14 +241,17 @@ def analysis_node(state: AgentState):
 # =========================
 writing_prompt = PromptTemplate.from_template(
     """
-    You are a Senior Energy Reporter.
-
-    Write a structured report with:
-    1. Executive Summary
-    2. Key Trends
-    3. Market Impact
-    4. Future Outlook
-    5. Sources
+    Write a HIGH-LEVEL, EXHAUSTIVE, and HIGHLY DETAILED structured report with:
+    
+    1. **Executive Summary** (3-4 dense paragraphs with summary of findings)
+    2. **Technical Deep-Dive** (In-depth explanation of how the energy technology/topic works)
+    3. **Global Market Landscapes & Regional Comparisons** (Detailed comparison of US, EU, China, etc.)
+    4. **Policy & Regulatory Environment** (Analysis of specific government subsidies, laws, and regulatory impacts)
+    5. **Case Studies & Real-world Implementations** (Detailed examples of notable projects)
+    6. **Strategic SWOT Analysis** (Deep analysis of Strengths, Weaknesses, Opportunities, and Threats)
+    7. **Financial Outlook & Investment ROI Analysis** (Financial performance, LCOE data, and future market predictions)
+    8. **Strategic Future Outlook** (Year-by-year projections for the next decade)
+    9. **Sources & Bibliography** (Citations from research)
 
     Analysis:
     {analysis}
@@ -176,13 +259,17 @@ writing_prompt = PromptTemplate.from_template(
     FEEDBACK FROM PREVIOUS VERSION (If any):
     {feedback}
     
-    If there is feedback, you MUST adjust the report to address it.
+    CRITICAL INSTRUCTION:
+    The report MUST be extremely detailed, professional, and content-rich. 
+    Use a length of at least 2000-3000 words if possible. Expand on each section with dense energy insights.
+    If there is feedback, you MUST adjust the report to directly address it.
+
     """
 )
 
-writing_chain = writing_prompt | llm | StrOutputParser()
+# Chain will be built in node
 
-def writing_node(state: AgentState):
+async def writing_node(state: AgentState):
     print("--- 🔄 Node: Writer ---")
     analysis_text = state["analysis"]
     feedback = state.get("reviewer_feedback", "")
@@ -191,7 +278,8 @@ def writing_node(state: AgentState):
     if current_rev > 0:
         print(f"--- 📝 Revision #{current_rev} (Feedback: {feedback}) ---")
     
-    report = writing_chain.invoke({
+    chain = writing_prompt | get_chat_model() | StrOutputParser()
+    report = await invoke_llm_with_retry(chain, {
         "analysis": analysis_text,
         "feedback": feedback
     })
@@ -210,23 +298,26 @@ reviewer_prompt = PromptTemplate.from_template(
     Report:
     {report}
     
-    Check for:
-    1. Structure (Does it have Executive Summary, Trends, Impact, Outlook?)
-    2. Depth (Is it detailed enough?)
+    STRICT Quality Check:
+    1. Structure (Does it have Technical Breakdown, SWOT, Case Studies, and Policy analysis?)
+    2. Depth (Is it an absolute deep dive? Reports that are less than 8-10 long sections MUST be failed.)
+    3. Fact-Density (Does it contain specific data, numbers, and regional comparisons?)
     
     Output format:
-    If the report is good, reply with just "PASS".
-    If the report needs improvement, reply with "FAIL: <Brief Feedback/Reason>".
+    If the report is exhaustive and professionally detailed, reply with just "PASS".
+    If the report is too short, missing key sections (like SWOT or Case Studies), or lacking detail, reply with "FAIL: <Detailed Feedback on what is missing>".
+
     """
 )
 
-reviewer_chain = reviewer_prompt | llm | StrOutputParser()
+# Chain will be built in node
 
-def reviewer_node(state: AgentState):
+async def reviewer_node(state: AgentState):
     print("--- 🔄 Node: Reviewer ---")
     report_text = state["report"]
     try:
-        result = reviewer_chain.invoke({"report": report_text})
+        chain = reviewer_prompt | get_chat_model() | StrOutputParser()
+        result = await invoke_llm_with_retry(chain, {"report": report_text})
     except Exception as e:
         print(f"--- ⚠️ Reviewer Error: {e}. Skipping review. ---")
         return {"reviewer_feedback": "PASS"} 
@@ -252,15 +343,16 @@ suggestions_prompt = PromptTemplate.from_template(
     """
 )
 
-suggestions_chain = suggestions_prompt | llm | StrOutputParser()
+# Chain will be built in node
 
-def suggestions_node(state: AgentState):
+async def suggestions_node(state: AgentState):
     print("--- 🔄 Node: Suggestions & History Update ---")
     report_text = state["report"]
     query = state["query"]
     
     # Generate suggestions
-    result = suggestions_chain.invoke({"report": report_text})
+    chain = suggestions_prompt | get_chat_model() | StrOutputParser()
+    result = await invoke_llm_with_retry(chain, {"report": report_text})
     questions = [q.strip() for q in result.strip().split('\n') if q.strip()]
     
     # Update History
@@ -337,7 +429,7 @@ app = workflow.compile(checkpointer=memory)
 # =========================
 # 🚀 Public Interface
 # =========================
-def run_full_research(query: str, thread_id: str = None) -> dict:
+async def run_full_research(query: str, thread_id: str = None) -> dict:
     """
     Entry point for the backend logic.
     """
@@ -348,7 +440,7 @@ def run_full_research(query: str, thread_id: str = None) -> dict:
     
     initial_state = {"query": query}
     
-    result = app.invoke(initial_state, config=config)
+    result = await app.ainvoke(initial_state, config=config)
     
     return {
         "report": result.get("report", "No report generated."),

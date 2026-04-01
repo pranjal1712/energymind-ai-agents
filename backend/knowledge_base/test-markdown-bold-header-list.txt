@@ -1,0 +1,6 @@
+Query: Test markdown: **bold**, # header, - list
+Date: 2026-03-30 20:41:26
+
+--------------------------------------
+
+I specialize in the Energy industry. Please ask a question related to energy, power, sustainability, or climate technology.

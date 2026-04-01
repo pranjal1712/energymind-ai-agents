@@ -1,376 +1,300 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { MoreVertical, Send, Plus, History, LogOut, User, MessageSquare, Image, MoreHorizontal, Search, Settings } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import api from '../services/api';
 
-function Chatbot({ onLogout }) {
+// Components
+import Sidebar from '../components/Sidebar';
+import MessageList from '../components/MessageList';
+import ChatInput from '../components/ChatInput';
+import ProfileModal from '../components/ProfileModal';
+import LoginModal from '../components/LoginModal';
+import CookieConsent from '../components/CookieConsent';
+
+// Utilities
+import { handleExportPDF, handleExportDocs } from '../utils/exportUtils';
+
+import './Chatbot.css';
+
+function Chatbot({ isLoggedIn, onLogin, onLogout }) {
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
-  const [showInputMenu, setShowInputMenu] = useState(false);
-  const inputMenuRef = useRef(null);
+  const [questionIdx, setQuestionIdx] = useState(0);
+  const [isFading, setIsFading] = useState(false);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isHistoryOpen, setIsHistoryOpen] = useState(true);
+  const [userData, setUserData] = useState({ name: 'Guest User', email: '' });
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const [isProfileModalOpen, setIsProfileModalOpen] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+  const [historyItems, setHistoryItems] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+  const [activeMsgMenuId, setActiveMsgMenuId] = useState(null);
+  const [researchStatus, setResearchStatus] = useState("Searching the web...");
+  const [showCookieConsent, setShowCookieConsent] = useState(false);
+
+  const profileMenuRef = useRef(null);
   const navigate = useNavigate();
 
-  const handleLogout = () => {
-    onLogout();
-    navigate('/login');
-  };
-
-  const historyItems = [
-    "Translation of Ruhi Sharif",
-    "Translation of Ruhi Sharif",
-    "Translation of Ruhi Sharif",
-    "Translation of Ruhi Sharif"
+  // Constants
+  const energyQuestions = [
+    "How can I help you today?",
+    "Looking for some energy analysis?",
+    "Want to optimize your power usage?",
+    "Need help with solar projections?",
+    "What's the outlook for green hydrogen in 2026?",
+    "Optimize power usage in data centers.",
+    "Role of AI in solar grid management?",
+    "How can decentralized energy markets work?"
   ];
+
+  const researchStatuses = [
+    "Searching the web for energy data...",
+    "Extracting key research points...",
+    "Analyzing market trends & policies...",
+    "Synthesizing your professional report...",
+    "Finalizing SWOT analysis & case studies..."
+  ];
+
+  // Effects
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    const init = async () => {
+      try {
+        const currentUser = await api.getMe();
+        setUserData({ name: currentUser.name || currentUser.username, email: currentUser.email });
+      } catch (err) {
+        console.error('Failed to load user data:', err);
+      }
+      try {
+        const history = await api.getHistory();
+        if (history) setHistoryItems(history);
+      } catch (err) {
+        console.error('Failed to load initial history:', err);
+      }
+    };
+    init();
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    if (isLoggedIn) {
+      const consent = localStorage.getItem('cookie_consent');
+      if (!consent) setShowCookieConsent(true);
+    }
+  }, [isLoggedIn]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setIsFading(true);
+      setTimeout(() => {
+        setQuestionIdx((prev) => (prev + 1) % energyQuestions.length);
+        setIsFading(false);
+      }, 500);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, [energyQuestions.length]);
+
+  useEffect(() => {
+    let interval;
+    if (loading) {
+      setResearchStatus(researchStatuses[0]);
+      interval = setInterval(() => {
+        setResearchStatus((prev) => {
+          const currentIndex = researchStatuses.indexOf(prev);
+          return researchStatuses[(currentIndex + 1) % researchStatuses.length];
+        });
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [loading]);
 
   useEffect(() => {
     function handleClickOutside(event) {
-      if (inputMenuRef.current && !inputMenuRef.current.contains(event.target)) {
-        setShowInputMenu(false);
+      if (profileMenuRef.current && !profileMenuRef.current.contains(event.target)) {
+        setIsProfileMenuOpen(false);
+      }
+      if (activeMsgMenuId && !event.target.closest('.msg-options-container')) {
+        setActiveMsgMenuId(null);
       }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  }, [activeMsgMenuId]);
 
-  const handleSend = () => {
-    if (!input.trim()) return;
-    const newMsg = { id: messages.length + 1, text: input, sender: 'user' };
-    setMessages([...messages, newMsg]);
+  // Handlers
+  const getInitials = (name) => {
+    if (!name) return 'U';
+    const parts = name.trim().split(' ');
+    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
+    return parts[0][0].toUpperCase();
+  };
+
+  const handleLogout = () => {
+    api.clearToken();
+    onLogout();
+    navigate('/login');
+  };
+
+  const handleSelectHistory = (item) => {
+    if (!item.query || !item.response) return;
+    setMessages([
+      { id: Date.now(), text: item.query, sender: 'user' },
+      { id: Date.now() + 1, text: item.response, sender: 'ai' }
+    ]);
+    if (window.innerWidth < 768) setIsSidebarOpen(false);
+  };
+
+  const handleDeleteChat = async (e, chatId) => {
+    e.stopPropagation();
+    if (window.confirm('Are you sure you want to delete this research?')) {
+      try {
+        await api.deleteHistoryItem(chatId);
+        setHistoryItems(prev => prev.filter(item => item.id !== chatId));
+        setActiveMenuId(null);
+      } catch (err) {
+        alert('Failed to delete chat: ' + err.message);
+      }
+    }
+  };
+
+  const handleSend = async () => {
+    if (!input.trim() || loading) return;
+    const isFirstMessage = messages.length === 0;
+    const userMsg = { id: Date.now(), text: input, sender: 'user' };
+    setMessages((prev) => [...prev, userMsg]);
+    const currentInput = input;
     setInput("");
+    setLoading(true);
+
+    try {
+      const response = await api.runResearch(currentInput);
+      const aiMsg = { id: Date.now() + 1, text: response.result, sender: 'ai' };
+      setMessages((prev) => [...prev, aiMsg]);
+      if (isFirstMessage) {
+        const updatedHistory = await api.getHistory();
+        setHistoryItems(updatedHistory);
+      }
+    } catch (err) {
+      const msg = err.message || JSON.stringify(err);
+      const isQuotaError = msg.toLowerCase().includes("limit") || msg.includes("15 chats");
+      setMessages((prev) => [...prev, {
+        id: Date.now() + 1, text: msg, sender: 'ai', type: isQuotaError ? 'quota' : 'error'
+      }]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-    <div className="chat-layout bg-grid">
-      {/* Sidebar */}
-      <aside className="sidebar glass">
-        <div className="sidebar-header">
-          <div className="logo-section">
-            <MessageSquare size={20} className="logo-icon" />
-            <span className="logo-text">EnergyMind</span>
-          </div>
-        </div>
+    <div className="chat-layout bg-radial">
+      <div className="chatbot-background-glow" style={{ top: '-10%', left: '-5%', background: 'radial-gradient(circle, rgba(4, 99, 74, 0.4) 0%, transparent 70%)' }}></div>
+      <div className="chatbot-background-glow" style={{ bottom: '-10%', right: '-5%', background: 'radial-gradient(circle, rgba(4, 99, 74, 0.4) 0%, transparent 70%)' }}></div>
+      <div className="chatbot-background-glow" style={{ top: '40%', left: '30%', width: '300px', height: '300px', background: 'radial-gradient(circle, rgba(4, 99, 74, 0.4) 0%, transparent 70%)' }}></div>
 
-        <nav className="sidebar-nav">
-          <button className="new-chat-btn" onClick={() => setMessages([])}>
-            <Plus size={18} /> New Chat
-          </button>
+      {!isLoggedIn && <LoginModal onLogin={onLogin} />}
+      {showCookieConsent && <CookieConsent onDecision={() => setShowCookieConsent(false)} />}
 
-          <div className="nav-section">
-            <h3 className="section-title">History</h3>
-            <div className="history-list">
-              {historyItems.map((item, idx) => (
-                <div key={idx} className="history-item">
-                  <MessageSquare size={14} />
-                  <span>{item}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </nav>
+      <Sidebar 
+        isSidebarOpen={isSidebarOpen}
+        setIsSidebarOpen={setIsSidebarOpen}
+        isHistoryOpen={isHistoryOpen}
+        setIsHistoryOpen={setIsHistoryOpen}
+        historyItems={historyItems}
+        onSelectHistory={handleSelectHistory}
+        onDeleteChat={handleDeleteChat}
+        onShareChat={(e, item) => {
+          e.stopPropagation();
+          navigator.clipboard.writeText(`Query: ${item.query}\nResult: ${item.response}`);
+          alert('Copied to clipboard!');
+          setActiveMenuId(null);
+        }}
+        activeMenuId={activeMenuId}
+        setActiveMenuId={setActiveMenuId}
+        isProfileMenuOpen={isProfileMenuOpen}
+        setIsProfileMenuOpen={setIsProfileMenuOpen}
+        userData={userData}
+        onOpenProfile={() => {
+          setEditName(userData.name);
+          setEditEmail(userData.email);
+          setIsProfileModalOpen(true);
+          setIsProfileMenuOpen(false);
+        }}
+        onLogout={handleLogout}
+        profileMenuRef={profileMenuRef}
+        getInitials={getInitials}
+        onNewChat={() => setMessages([])}
+      />
 
-        <div className="sidebar-footer">
-          <button className="user-profile-btn" onClick={() => navigate('/profile')}>
-            <div className="user-avatar">
-              <User size={16} />
-            </div>
-            <div className="user-info">
-              <span className="user-name">Shahzaib</span>
-              <span className="user-email">shahzaib@example.com</span>
-            </div>
-            <div className="footer-actions">
-              <Settings size={14} className="settings-icon" />
-              <LogOut size={14} className="logout-icon" onClick={(e) => { e.stopPropagation(); handleLogout(); }} />
-            </div>
-          </button>
-        </div>
-      </aside>
-
-      {/* Main Content */}
-      <main className="main-chat">
+      <main className="main-chat" style={{ marginLeft: isSidebarOpen ? '240px' : '56px' }}>
         <header className="main-header">
-          <div className="model-selector glass">
-            Model 2.5 <ChevronDown size={14} />
-          </div>
+          <div className="brand-name-chat">EnergyMind AI</div>
         </header>
 
-        <div className="chat-viewport">
-          {messages.length === 0 ? (
-            <div className="welcome-section">
-              <h1 className="welcome-title">What's on your mind today?</h1>
-              <div className="input-container-large glass">
-                <textarea 
-                  placeholder="Message AI chat..." 
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && (e.preventDefault(), handleSend())}
-                />
-                <div className="input-toolbar">
-                  <div className="toolbar-left" ref={inputMenuRef}>
-                    <button className="icon-btn" onClick={() => setShowInputMenu(!showInputMenu)}>
-                      <MoreHorizontal size={18} />
-                    </button>
-                    {showInputMenu && (
-                      <div className="input-dropdown glass">
-                        <button className="dropdown-item">
-                          <Image size={16} /> Upload Image
-                        </button>
-                      </div>
-                    )}
-                    <button className="toolbar-pill">
-                      <Search size={14} /> Search
-                    </button>
-                    <button className="toolbar-pill">
-                      <Image size={14} /> Create image
-                    </button>
-                  </div>
-                  <div className="toolbar-right">
-                    <button className="send-btn-new" onClick={handleSend} disabled={!input.trim()}>
-                      <Send size={18} />
-                    </button>
-                  </div>
-                </div>
-              </div>
-              
-              <div className="suggestion-tags">
-                {["AI script writer", "Coding Assistant", "Essay writer", "Business", "Translate"].map(tag => (
-                  <span key={tag} className="tag glass">{tag}</span>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div className="messages-list-new">
-              {messages.map((msg) => (
-                <div key={msg.id} className={`msg-bubble ${msg.sender}`}>
-                  {msg.text}
-                </div>
-              ))}
-              <div className="bottom-spacing"></div>
-            </div>
-          )}
-        </div>
+        <MessageList 
+          messages={messages}
+          loading={loading}
+          researchStatus={researchStatus}
+          activeMsgMenuId={activeMsgMenuId}
+          onToggleMsgMenu={(e, id) => {
+            e.stopPropagation();
+            setActiveMsgMenuId(activeMsgMenuId === id ? null : id);
+          }}
+          onCopy={(text) => {
+            navigator.clipboard.writeText(text);
+            alert("Copied!");
+            setActiveMsgMenuId(null);
+          }}
+          onExportPDF={(text, query) => handleExportPDF(text, query, () => setActiveMsgMenuId(null))}
+          onExportDocs={(text, query) => handleExportDocs(text, query, () => setActiveMsgMenuId(null))}
+        />
 
-        {messages.length > 0 && (
-          <div className="sticky-input-container">
-            <div className="input-container-compact glass">
-              <input 
-                type="text" 
-                placeholder="Message AI chat..." 
-                value={input}
-                onChange={(e) => setInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSend()}
-              />
-              <button className="send-btn-small" onClick={handleSend} disabled={!input.trim()}>
-                <Send size={16} />
-              </button>
+        {messages.length === 0 ? (
+          <div className="chat-viewport">
+            <div className="welcome-section">
+              <h1 className={`welcome-title fade-text ${isFading ? 'hiding' : ''}`}>
+                {energyQuestions[questionIdx]}
+              </h1>
+              <div className="welcome-input-wrapper" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+                <ChatInput 
+                  input={input}
+                  setInput={setInput}
+                  onSend={handleSend}
+                  disabled={loading}
+                />
+              </div>
             </div>
+          </div>
+        ) : (
+          <div className={`sticky-input-container visible`}>
+            <ChatInput 
+              input={input}
+              setInput={setInput}
+              onSend={handleSend}
+              disabled={loading}
+              isCompact={true}
+            />
           </div>
         )}
       </main>
 
-      <style>{`
-        .chat-layout { display: flex; height: 100vh; overflow: hidden; }
-        
-        /* Sidebar Styles */
-        .sidebar {
-          width: var(--sidebar-width);
-          height: 100%;
-          display: flex;
-          flex-direction: column;
-          border-right: 1px solid var(--border);
-          z-index: 50;
-        }
-        .sidebar-header { padding: 1.5rem; }
-        .logo-section { display: flex; align-items: center; gap: 0.75rem; }
-        .logo-icon { color: var(--primary); }
-        .logo-text { font-weight: 700; font-size: 1.1rem; }
+      <ProfileModal 
+        isOpen={isProfileModalOpen}
+        onClose={() => setIsProfileModalOpen(false)}
+        editName={editName}
+        setEditName={setEditName}
+        editEmail={editEmail}
+        setEditEmail={setEditEmail}
+        onSave={() => {
+          const updatedUser = { ...userData, name: editName, email: editEmail };
+          setUserData(updatedUser);
+          localStorage.setItem('user', JSON.stringify(updatedUser));
+          setIsProfileModalOpen(false);
+        }}
+        getInitials={getInitials}
+      />
 
-        .sidebar-nav { flex: 1; padding: 0 1rem; overflow-y: auto; }
-        .new-chat-btn {
-          width: 100%;
-          padding: 0.75rem;
-          background: rgba(255, 255, 255, 0.05);
-          border: 1px solid var(--border);
-          border-radius: var(--radius);
-          color: white;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          margin-bottom: 2rem;
-          font-weight: 500;
-          transition: var(--transition);
-        }
-        .new-chat-btn:hover { background: rgba(255, 255, 255, 0.1); }
-
-        .section-title { font-size: 0.75rem; text-transform: uppercase; color: var(--text-muted); margin-bottom: 1rem; letter-spacing: 0.05em; }
-        .history-list { display: flex; flex-direction: column; gap: 0.5rem; }
-        .history-item {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.6rem 0.75rem;
-          font-size: 0.85rem;
-          color: var(--text-muted);
-          border-radius: 8px;
-          cursor: pointer;
-          transition: var(--transition);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-        .history-item:hover { background: rgba(255, 255, 255, 0.05); color: white; }
-
-        .sidebar-footer { padding: 1rem; border-top: 1px solid var(--border); }
-        .user-profile-btn {
-          width: 100%;
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.75rem;
-          background: transparent;
-          border-radius: var(--radius);
-          text-align: left;
-          color: white;
-          transition: var(--transition);
-        }
-        .user-profile-btn:hover { background: rgba(255, 255, 255, 0.05); }
-        .user-avatar { width: 32px; height: 32px; background: var(--primary); border-radius: 50%; display: flex; align-items: center; justify-content: center; }
-        .user-info { flex: 1; display: flex; flex-direction: column; }
-        .user-name { font-size: 0.85rem; font-weight: 600; }
-        .user-email { font-size: 0.7rem; color: var(--text-muted); }
-
-        /* Main Content Styles */
-        .main-chat { flex: 1; display: flex; flex-direction: column; position: relative; }
-        .main-header { padding: 1rem 2rem; display: flex; justify-content: flex-end; }
-        .model-selector { padding: 0.5rem 1rem; border-radius: 100px; font-size: 0.85rem; display: flex; align-items: center; gap: 0.5rem; cursor: pointer; }
-
-        .chat-viewport { flex: 1; display: flex; flex-direction: column; align-items: center; padding: 2rem; overflow-y: auto; }
-        .welcome-section { width: 100%; max-width: 800px; display: flex; flex-direction: column; align-items: center; margin-top: 10vh; }
-        .welcome-title { font-size: 2.5rem; font-weight: 700; margin-bottom: 2.5rem; text-align: center; }
-        
-        .input-container-large {
-          width: 100%;
-          border-radius: 20px;
-          padding: 1.25rem;
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-          box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-        }
-        .input-container-large textarea {
-          width: 100%;
-          background: transparent;
-          border: none;
-          outline: none;
-          color: white;
-          font-size: 1.1rem;
-          resize: none;
-          min-height: 100px;
-        }
-
-        .input-toolbar { display: flex; justify-content: space-between; align-items: center; }
-        .toolbar-left { display: flex; align-items: center; gap: 0.75rem; position: relative; }
-        .icon-btn { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; transition: var(--transition); }
-        .icon-btn:hover { background: rgba(255, 255, 255, 0.1); color: white; }
-        
-        .toolbar-pill {
-          padding: 0.4rem 0.75rem;
-          background: rgba(255, 255, 255, 0.05);
-          border-radius: 100px;
-          color: var(--text-muted);
-          font-size: 0.75rem;
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          transition: var(--transition);
-        }
-        .toolbar-pill:hover { background: rgba(255, 255, 255, 0.1); color: white; }
-
-        .input-dropdown {
-          position: absolute;
-          bottom: calc(100% + 0.5rem);
-          left: 0;
-          width: 160px;
-          border-radius: var(--radius);
-          padding: 0.5rem;
-          display: flex;
-          flex-direction: column;
-          z-index: 10;
-        }
-        .dropdown-item {
-          padding: 0.6rem 0.75rem;
-          width: 100%;
-          background: transparent;
-          color: white;
-          font-size: 0.8rem;
-          display: flex;
-          align-items: center;
-          gap: 0.6rem;
-          border-radius: 8px;
-          transition: var(--transition);
-        }
-        .dropdown-item:hover { background: rgba(255, 255, 255, 0.1); }
-
-        .send-btn-new {
-          background: var(--primary);
-          color: white;
-          width: 40px;
-          height: 40px;
-          border-radius: 12px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: var(--transition);
-        }
-        .send-btn-new:disabled { opacity: 0.3; cursor: not-allowed; }
-        .send-btn-new:not(:disabled):hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.4); }
-
-        .suggestion-tags { display: flex; flex-wrap: wrap; gap: 0.75rem; justify-content: center; margin-top: 3rem; }
-        .tag { padding: 0.5rem 1rem; border-radius: 100px; font-size: 0.8rem; color: var(--text-muted); cursor: pointer; transition: var(--transition); }
-        .tag:hover { border-color: var(--primary); color: white; }
-
-        /* Compact Input for Active Chat */
-        .sticky-input-container {
-          position: sticky;
-          bottom: 0;
-          width: 100%;
-          padding: 1.5rem 2rem;
-          display: flex;
-          justify-content: center;
-          background: linear-gradient(transparent, #0f172a 20%);
-        }
-        .input-container-compact {
-          width: 100%;
-          max-width: 800px;
-          display: flex;
-          align-items: center;
-          padding: 0.5rem 0.75rem 0.5rem 1.25rem;
-          border-radius: 100px;
-        }
-        .input-container-compact input { flex: 1; background: transparent; border: none; outline: none; color: white; padding: 0.5rem 0; }
-        .send-btn-small { background: var(--primary); color: white; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; opacity: 0.3; }
-        .send-btn-small:not(:disabled) { opacity: 1; }
-        .footer-actions { display: flex; align-items: center; gap: 0.5rem; }
-        .logout-icon { color: var(--text-muted); transition: var(--transition); }
-        .logout-icon:hover { color: var(--error); transform: scale(1.1); }
-      `}</style>
     </div>
-  );
-}
-
-function ChevronDown({ size, style }) {
-  return (
-    <svg 
-      width={size} 
-      height={size} 
-      viewBox="0 0 24 24" 
-      fill="none" 
-      stroke="currentColor" 
-      strokeWidth="2" 
-      strokeLinecap="round" 
-      strokeLinejoin="round" 
-      style={style}
-    >
-      <path d="m6 9 6 6 6-6"/>
-    </svg>
   );
 }
 

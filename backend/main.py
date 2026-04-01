@@ -3,15 +3,23 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
+import re
 from datetime import datetime, timedelta
-from slugify import slugify
 from typing import List, Optional
 from pydantic import BaseModel
+
+def slugify(text: str) -> str:
+    """Helper to create URL-safe slugs from text."""
+    text = text.lower().strip()
+    text = re.sub(r'[^\w\s-]', '', text)
+    text = re.sub(r'[\s_-]+', '-', text)
+    text = re.sub(r'^-+|-+$', '', text)
+    return text
 
 from .models import ResearchRequest, ResearchResponse
 from .research_chain import run_full_research
 from .database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db
-from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES
+from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_google_token
 
 # Load env variables
 load_dotenv()
@@ -43,6 +51,9 @@ class UserCreate(BaseModel):
     email: str
     password: str
 
+class GoogleAuthRequest(BaseModel):
+    token: str
+
 class UserLogin(BaseModel):
     username: str
     password: str
@@ -57,6 +68,7 @@ class UserResponse(BaseModel):
     email: str
 
 class ChatHistoryResponse(BaseModel):
+    id: int
     query: str
     response: str
     timestamp: datetime
@@ -89,7 +101,7 @@ async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Se
 
 # Helper for optional user
 async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    if not token:
+    if not token or token == "undefined" or token == "null":
         return None
     try:
         payload = decode_access_token(token)
@@ -99,7 +111,8 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: S
         if not username:
             return None
         return db.query(User).filter(User.username == username).first()
-    except:
+    except Exception as e:
+        print(f"Auth Error: {e}")
         return None
 
 # =========================
@@ -129,13 +142,50 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    # Check both username and email
+    user = db.query(User).filter(
+        (User.username == form_data.username) | (User.email == form_data.username)
+    ).first()
+    
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email/username or password",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    return {"access_token": access_token, "token_type": "bearer", "username": user.username}
+
+@app.post("/auth/google", response_model=Token)
+async def google_auth(request: GoogleAuthRequest, db: Session = Depends(get_db)):
+    idinfo = verify_google_token(request.token)
+    if not idinfo:
+        raise HTTPException(status_code=400, detail="Invalid Google token")
+    
+    email = idinfo.get("email")
+    name = idinfo.get("name", email.split('@')[0])
+    
+    # Check if user exists
+    user = db.query(User).filter(User.email == email).first()
+    
+    if not user:
+        # Create new user
+        # Generate a unique username from email
+        base_username = email.split('@')[0]
+        username = base_username
+        counter = 1
+        while db.query(User).filter(User.username == username).first():
+            username = f"{base_username}{counter}"
+            counter += 1
+            
+        user = User(username=username, email=email, hashed_password="GOOGLE_AUTH")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
     
     access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
@@ -157,29 +207,60 @@ async def run_research_endpoint(
     db: Session = Depends(get_db)
 ):
     try:
+        now = datetime.utcnow()
+        
+        # 🔹 Quota Enforcement for authenticated users
+        if user:
+            # Check if 24h reset is needed
+            if user.limit_reached_at:
+                time_passed = now - user.limit_reached_at
+                if time_passed >= timedelta(hours=24):
+                    user.chats_count = 0
+                    user.limit_reached_at = None
+                    db.commit()
+                else:
+                    remaining = timedelta(hours=24) - time_passed
+                    hours, remainder = divmod(remaining.seconds, 3600)
+                    minutes = remainder // 60
+                    raise HTTPException(
+                        status_code=429, 
+                        detail=f"Daily limit (15 chats) exceeded. Please try again in {hours}h {minutes}m."
+                    )
+            
+            # Check if limit just hit
+            if user.chats_count >= 15:
+                user.limit_reached_at = now
+                db.commit()
+                raise HTTPException(
+                    status_code=429, 
+                    detail="Daily limit (15 chats) reached. Access will reset in 24 hours."
+                )
+
         # 🔹 check in cache (Knowledge Base DB)
         cached_data = check_in_cache(request.query, db)
-        if cached_data:
-            return ResearchResponse(
-                query=request.query,
-                result=cached_data["result"],
-                file_path="Served from Database Cache", 
-                suggestions=[] 
-            )
-
-        # 🔹 Run LangChain research with optional thread_id
-        research_output = run_full_research(request.query, request.thread_id)
-        result_text = research_output["report"]
-        suggestions = research_output.get("suggestions", [])
-
-        # 🔹 Save to knowledge_base (DB)
-        save_to_knowledge_base(request.query, result_text, db)
         
-        # 🔹 Save to file as backup (optional, keeping for now)
-        file_path = save_result_to_file(request.query, result_text)
+        is_new_research = False
+        if cached_data:
+            result_text = cached_data["result"]
+            file_path = "Served from Database Cache"
+            suggestions = []
+        else:
+            # 🔹 Run LangChain research with optional thread_id
+            research_output = await run_full_research(request.query, request.thread_id)
+            result_text = research_output["report"]
+            suggestions = research_output.get("suggestions", [])
+            is_new_research = True
 
-        # 🔹 Save to DB if authenticated
+            # 🔹 Save to knowledge_base (DB)
+            save_to_knowledge_base(request.query, result_text, db)
+            # 🔹 Save to file as backup
+            file_path = save_result_to_file(request.query, result_text)
+
+        # 🔹 Update User Stats & history if authenticated
         if user:
+            if is_new_research:
+                user.chats_count += 1
+            
             chat_entry = ChatHistory(
                 user_id=user.id,
                 query=request.query,
@@ -208,7 +289,17 @@ async def run_research_endpoint(
 async def get_user_history(current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     chats = db.query(ChatHistory).filter(ChatHistory.user_id == current_user.id)\
               .order_by(ChatHistory.timestamp.desc()).limit(10).all()
-    return [{"query": c.query, "response": c.response, "timestamp": c.timestamp} for c in chats]
+    return [{"id": c.id, "query": c.query, "response": c.response, "timestamp": c.timestamp} for c in chats]
+
+@app.delete("/history/{chat_id}")
+async def delete_chat_history(chat_id: int, current_user: User = Depends(get_current_user), db: Session = Depends(get_db)):
+    chat = db.query(ChatHistory).filter(ChatHistory.id == chat_id, ChatHistory.user_id == current_user.id).first()
+    if not chat:
+        raise HTTPException(status_code=404, detail="Chat session not found")
+    
+    db.delete(chat)
+    db.commit()
+    return {"status": "success", "message": "Chat deleted"}
 
 # Helper to save to file (keeping existing functionality)
 def save_result_to_file(query: str, result: str) -> str:

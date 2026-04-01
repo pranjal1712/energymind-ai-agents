@@ -1,0 +1,6 @@
+Query: Please show me only a markdown table and a blockquote to test the styling. Table should have 3 rows and 3 columns. Blockquote should have some text. Use # Title, ## Section, ### Subsection too.
+Date: 2026-03-31 20:07:36
+
+--------------------------------------
+
+I specialize in the Energy industry. Please ask a question related to energy, power, sustainability, or climate technology.
