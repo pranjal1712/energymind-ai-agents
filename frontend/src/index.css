@@ -584,7 +584,7 @@ span.glowing-square:nth-of-type(6) {
 
 .login-modal-container {
   width: 100%;
-  max-width: 420px;
+  max-width: 500px;
   padding: 1rem;
   animation: scaleIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
 }

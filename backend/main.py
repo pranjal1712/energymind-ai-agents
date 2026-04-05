@@ -3,6 +3,10 @@ from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
 import os
+
+# Load env variables at the very beginning
+load_dotenv()
+
 import re
 from datetime import datetime, timedelta
 from typing import List, Optional
@@ -21,9 +25,6 @@ from .research_chain import run_full_research
 from .database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db
 from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_google_token
 
-# Load env variables
-load_dotenv()
-
 # Initialize Database
 # ... (imports)
 
@@ -41,6 +42,13 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+@app.middleware("http")
+async def add_process_time_header(request, call_next):
+    response = await call_next(request)
+    # Add COOP header to allow Google Auth popups to communicate
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    return response
 
 # Allow optional auth for guest mode
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)

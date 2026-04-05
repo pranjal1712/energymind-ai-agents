@@ -4,7 +4,6 @@ import Login from './pages/Login';
 import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
-import Profile from './pages/Profile';
 import Chatbot from './pages/Chatbot';
 import api from './services/api';
 import './index.css';
@@ -28,36 +27,29 @@ function App() {
       <div className="app-container">
         <Routes>
           <Route path="/" element={<Navigate to="/chatbot" />} />
-          <Route 
-            path="/login" 
-            element={isLoggedIn ? <Navigate to="/chatbot" /> : <Login onLogin={() => setIsLoggedIn(true)} />} 
+          <Route
+            path="/login"
+            element={isLoggedIn ? <Navigate to="/chatbot" /> : <Login onLogin={() => setIsLoggedIn(true)} />}
           />
-          <Route 
-            path="/signup" 
-            element={isLoggedIn ? <Navigate to="/chatbot" /> : <Signup onSignup={() => setIsLoggedIn(true)} />} 
+          <Route
+            path="/signup"
+            element={isLoggedIn ? <Navigate to="/chatbot" /> : <Signup onSignup={() => setIsLoggedIn(true)} />}
           />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
-          
-          <Route 
-            path="/profile" 
+
+
+          <Route
+            path="/chatbot"
             element={
-              <ProtectedRoute isLoggedIn={isLoggedIn}>
-                <Profile onLogout={() => setIsLoggedIn(false)} />
-              </ProtectedRoute>
-            } 
-          />
-          <Route 
-            path="/chatbot" 
-            element={
-              <Chatbot 
-                isLoggedIn={isLoggedIn} 
-                onLogin={() => setIsLoggedIn(true)} 
-                onLogout={() => setIsLoggedIn(false)} 
+              <Chatbot
+                isLoggedIn={isLoggedIn}
+                onLogin={() => setIsLoggedIn(true)}
+                onLogout={() => setIsLoggedIn(false)}
               />
-            } 
+            }
           />
-          
+
           <Route path="*" element={<Navigate to="/chatbot" />} />
         </Routes>
       </div>

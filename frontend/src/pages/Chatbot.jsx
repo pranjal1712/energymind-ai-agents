@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { PanelLeft } from 'lucide-react';
 import api from '../services/api';
 
 // Components
@@ -20,7 +21,7 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
   const [input, setInput] = useState("");
   const [questionIdx, setQuestionIdx] = useState(0);
   const [isFading, setIsFading] = useState(false);
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(window.innerWidth > 768);
   const [isHistoryOpen, setIsHistoryOpen] = useState(true);
   const [userData, setUserData] = useState({ name: 'Guest User', email: '' });
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -33,6 +34,17 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
   const [activeMsgMenuId, setActiveMsgMenuId] = useState(null);
   const [researchStatus, setResearchStatus] = useState("Searching the web...");
   const [showCookieConsent, setShowCookieConsent] = useState(false);
+
+  // Add listener for screen resize to handle input compactness dynamically
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  
+  useEffect(() => {
+    const handleResize = () => {
+      setIsMobile(window.innerWidth <= 768);
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   const profileMenuRef = useRef(null);
   const navigate = useNavigate();
@@ -50,11 +62,16 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
   ];
 
   const researchStatuses = [
-    "Searching the web for energy data...",
-    "Extracting key research points...",
-    "Analyzing market trends & policies...",
-    "Synthesizing your professional report...",
-    "Finalizing SWOT analysis & case studies..."
+    "🔍 Scanning global energy markets...",
+    "🛰️ Connecting to real-time grid data...",
+    "📊 Extracting technical insights...",
+    "📜 Reviewing regulatory frameworks...",
+    "📈 Analyzing price trends & LCOE...",
+    "🛡️ Performing SWOT analysis...",
+    "💡 Generating innovative solutions...",
+    "🌍 Comparing regional transitions...",
+    "📑 Synthesizing professional report...",
+    "✨ Finalizing documentation..."
   ];
 
   // Effects
@@ -142,7 +159,7 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
       { id: Date.now(), text: item.query, sender: 'user' },
       { id: Date.now() + 1, text: item.response, sender: 'ai' }
     ]);
-    if (window.innerWidth < 768) setIsSidebarOpen(false);
+    if (window.innerWidth <= 768) setIsSidebarOpen(false);
   };
 
   const handleDeleteChat = async (e, chatId) => {
@@ -195,6 +212,10 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
       {!isLoggedIn && <LoginModal onLogin={onLogin} />}
       {showCookieConsent && <CookieConsent onDecision={() => setShowCookieConsent(false)} />}
 
+      <div 
+        className={`sidebar-backdrop ${isSidebarOpen && isMobile ? 'visible' : ''}`}
+        onClick={() => setIsSidebarOpen(false)}
+      ></div>
       <Sidebar 
         isSidebarOpen={isSidebarOpen}
         setIsSidebarOpen={setIsSidebarOpen}
@@ -223,11 +244,23 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
         onLogout={handleLogout}
         profileMenuRef={profileMenuRef}
         getInitials={getInitials}
-        onNewChat={() => setMessages([])}
+        onNewChat={() => {
+          setMessages([]);
+          if (isMobile) setIsSidebarOpen(false);
+        }}
       />
 
-      <main className="main-chat" style={{ marginLeft: isSidebarOpen ? '240px' : '56px' }}>
+      <main className="main-chat" style={{ marginLeft: (isSidebarOpen && !isMobile) ? '240px' : '0' }}>
         <header className="main-header">
+          {!isSidebarOpen && (
+            <button 
+              className="mobile-menu-btn" 
+              onClick={() => setIsSidebarOpen(true)}
+              style={{ position: 'absolute', left: '1rem', background: 'transparent', border: 'none', color: 'white', cursor: 'pointer', padding: '0.5rem' }}
+            >
+              <PanelLeft size={22} />
+            </button>
+          )}
           <div className="brand-name-chat">EnergyMind AI</div>
         </header>
 
@@ -249,23 +282,46 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
           onExportDocs={(text, query) => handleExportDocs(text, query, () => setActiveMsgMenuId(null))}
         />
 
-        {messages.length === 0 ? (
+        {messages.length === 0 && (
           <div className="chat-viewport">
-            <div className="welcome-section">
-              <h1 className={`welcome-title fade-text ${isFading ? 'hiding' : ''}`}>
-                {energyQuestions[questionIdx]}
-              </h1>
-              <div className="welcome-input-wrapper" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
-                <ChatInput 
-                  input={input}
-                  setInput={setInput}
-                  onSend={handleSend}
-                  disabled={loading}
-                />
-              </div>
+            <div className="welcome-section" style={{ marginTop: isMobile ? '10vh' : '25vh' }}>
+              <div className="welcome-title">EnergyMind AI</div>
+              {isMobile && (
+                <div className="welcome-suggestions">
+                  {[
+                    "Green hydrogen outlook 2026",
+                    "AI in solar grid management",
+                    "Data center power optimization"
+                  ].map((q, i) => (
+                    <button 
+                      key={i} 
+                      className="suggestion-chip glass"
+                      onClick={() => {
+                        setInput(q);
+                        // Optional: auto-send
+                      }}
+                    >
+                      {q}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {!isMobile && (
+                <div className="welcome-input-wrapper" style={{ width: '100%', maxWidth: '800px', margin: '0 auto' }}>
+                  <ChatInput 
+                    input={input}
+                    setInput={setInput}
+                    onSend={handleSend}
+                    disabled={loading}
+                    placeholder={energyQuestions[questionIdx]}
+                  />
+                </div>
+              )}
             </div>
           </div>
-        ) : (
+        )}
+
+        {(messages.length > 0 || isMobile) && (
           <div className={`sticky-input-container visible`}>
             <ChatInput 
               input={input}
@@ -273,6 +329,7 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
               onSend={handleSend}
               disabled={loading}
               isCompact={true}
+              placeholder={messages.length === 0 ? energyQuestions[questionIdx] : "Hi! What's on your mind?"}
             />
           </div>
         )}

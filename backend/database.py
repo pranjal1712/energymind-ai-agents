@@ -4,10 +4,18 @@ from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
 import os
 
-# Create SQLite database file
-DATABASE_URL = "sqlite:///./users.db"
+# Create SQLite/PostgreSQL database connection
+DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./users.db")
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
+# Fix for Supabase/Render postgres URI format
+if DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# SQLite needs check_same_thread: False, but Postgres doesn't
+is_sqlite = DATABASE_URL.startswith("sqlite")
+connect_args = {"check_same_thread": False} if is_sqlite else {}
+
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()

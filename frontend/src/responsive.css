@@ -1,0 +1,297 @@
+/* =========================================
+   Mobile Responsiveness Overrides
+   Breakpoints: 768px (Tablets/Phones)
+   ========================================= */
+
+@media (max-width: 768px) {
+
+  .bg-radial {
+    background: #000000 !important;
+  }
+
+  .bg-radial::before {
+    background:
+      radial-gradient(circle at 0% 0%, rgba(255, 255, 255, 0.15) 0%, rgba(255, 255, 255, 0) 250px),
+      radial-gradient(circle at 100% 100%, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 250px) !important;
+    mask-size: 40px 40px !important;
+    -webkit-mask-size: 40px 40px !important;
+  }
+
+  /* 1. Global & Auth Reset */
+  .auth-page {
+    padding: 1rem;
+    height: auto !important;
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+  }
+
+  .premium-card {
+    max-width: 100% !important;
+    width: 92% !important;
+    padding: 1.25rem 1rem !important;
+    margin: 1rem auto !important;
+  }
+
+  .auth-title {
+    font-size: 1.4rem !important;
+    white-space: normal !important;
+    text-align: center;
+    width: auto !important;
+    animation: none !important;
+    border: none !important;
+  }
+
+  .auth-subtitle {
+    font-size: 0.85rem !important;
+    text-align: center;
+    line-height: 1.5 !important;
+  }
+
+  /* 2. Sidebar Overlay Drawer */
+  .sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    bottom: 0;
+    width: 280px !important;
+    z-index: 2500 !important;
+    /* Highest layer */
+    transform: translateX(-100%);
+    transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 20px 0 50px rgba(0, 0, 0, 0.5);
+  }
+
+  /* Reduce glass effect on mobile for better text clarity */
+  .sidebar.glass {
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    background: rgba(13, 13, 13, 0.95) !important;
+  }
+
+  .sidebar.open {
+    transform: translateX(0);
+  }
+
+  .sidebar.collapsed {
+    display: none !important;
+  }
+
+  .new-chat-btn-slim {
+    height: 48px !important;
+    margin: 0.5rem 1rem !important;
+    padding: 0 1rem !important;
+  }
+
+  .history-item {
+    height: 46px !important;
+    padding: 0 1rem !important;
+    display: flex;
+    align-items: center;
+  }
+
+  /* 3. Main Chat Layout */
+  .main-chat {
+    margin-left: 0 !important;
+    width: 100% !important;
+    transition: margin-left 0.3s ease;
+  }
+
+  .main-header {
+    height: 64px;
+    padding: 0 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: flex-start;
+    position: relative;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  }
+
+  .brand-name-chat {
+    font-size: 0.95rem !important;
+    font-weight: 700 !important;
+    margin-left: 2.4rem;
+  }
+
+  .chat-viewport {
+    padding: 1rem 0.5rem;
+  }
+
+  /* 4. Chat Components */
+  .welcome-section {
+    margin-top: 5vh !important;
+    padding: 0 1rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .welcome-suggestions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.75rem;
+    justify-content: center;
+    margin-top: 1rem;
+    max-width: 100%;
+  }
+
+  .suggestion-chip {
+    padding: 0.65rem 1rem;
+    font-size: 0.8rem;
+    color: rgba(255, 255, 255, 0.8);
+    border-radius: 50px;
+    white-space: nowrap;
+    transition: var(--transition);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(255, 255, 255, 0.03);
+  }
+
+  .suggestion-chip:active {
+    background: rgba(255, 255, 255, 0.1);
+    transform: scale(0.95);
+  }
+
+  .welcome-title {
+    font-size: 1.2rem !important;
+    margin-bottom: 1rem !important;
+    max-width: 95%;
+  }
+
+  .input-container-large,
+  .input-container-compact {
+    width: 95% !important;
+    max-width: 100% !important;
+    border-radius: 12px !important;
+    padding: 0.6rem !important;
+    margin: 0 auto;
+  }
+
+  .input-container-large textarea {
+    font-size: 0.95rem !important;
+    min-height: 70px !important;
+  }
+
+  .sticky-input-container {
+    padding: 0.5rem 0.5rem 2rem 0.5rem !important;
+    position: fixed !important;
+    bottom: 0;
+    left: 0;
+    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
+    z-index: 1000;
+  }
+
+  .msg-bubble {
+    padding: 0.75rem 0.85rem !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 0.6rem !important;
+  }
+
+  /* 5. Mobile Backdrop */
+  .sidebar-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(4px) !important;
+    -webkit-backdrop-filter: blur(4px) !important;
+    z-index: 2000;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+  }
+
+  .sidebar-backdrop.visible {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* 6. Simplified Login Modal (Restricted Access) */
+  .modal-overlay {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0, 0, 0, 0.8);
+  }
+
+  .login-modal-container {
+    width: 100% !important;
+    max-width: 320px !important;
+  }
+
+  .auth-card-modal {
+    padding: 2rem 1.25rem !important;
+    border-radius: 20px !important;
+  }
+
+  .auth-card-modal .auth-title {
+    font-size: 1.5rem !important;
+    margin-bottom: 0.75rem !important;
+  }
+
+  .auth-card-modal .auth-subtitle {
+    font-size: 0.9rem !important;
+    margin-bottom: 1.5rem !important;
+    line-height: 1.6 !important;
+  }
+
+  .modal-actions button {
+    padding: 0.85rem !important;
+    font-size: 0.9rem !important;
+  }
+
+  .profile-modal {
+    width: 98% !important;
+    max-width: 100% !important;
+    border-radius: 24px !important;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 1rem !important;
+  }
+
+  .large-avatar-circle {
+    width: 70px !important;
+    height: 70px !important;
+  }
+
+  .edit-group input {
+    font-size: 0.95rem !important;
+    padding: 0.7rem !important;
+  }
+
+  /* 7. Cookie Consent Mobile Optimization */
+  .cookie-consent-banner {
+    bottom: 16px !important;
+    left: 12px !important;
+    right: 12px !important;
+    padding: 1.25rem !important;
+    gap: 1rem !important;
+    border-radius: 20px !important;
+  }
+
+  .cookie-title {
+    font-size: 1rem !important;
+    margin-bottom: 0.15rem !important;
+  }
+
+  .cookie-text {
+    font-size: 0.8rem !important;
+    line-height: 1.4 !important;
+  }
+
+  .cookie-actions {
+    display: flex;
+    flex-direction: column-reverse;
+    gap: 0.6rem !important;
+    width: 100%;
+  }
+
+  .cookie-actions button {
+    width: 100% !important;
+    padding: 0.75rem !important;
+    font-size: 0.85rem !important;
+  }
+}

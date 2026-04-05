@@ -92,9 +92,9 @@ const MessageList = ({
           ))}
 
           {loading && (
-            <div className="msg-bubble ai thinking">
-              <div className="thinking-content">
-                <div className="typing-indicator">
+            <div className="thinking-container">
+              <div className="thinking-content-new">
+                <div className="typing-dots">
                   <span></span><span></span><span></span>
                 </div>
                 <div className="status-text-anim">

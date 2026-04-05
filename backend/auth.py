@@ -3,6 +3,10 @@ from datetime import datetime, timedelta
 from typing import Optional
 import jwt
 import os
+from dotenv import load_dotenv
+
+# Ensure environment variables are loaded
+load_dotenv()
 
 # Configuration
 SECRET_KEY = os.getenv("SECRET_KEY", "eb9d6189dc6b4f74a0082f4233777555522a101b1c2086b97b0c5f2b8")
@@ -16,14 +20,18 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 
 def verify_google_token(token: str):
     try:
+        if not GOOGLE_CLIENT_ID:
+            print("ERROR: GOOGLE_CLIENT_ID is not set in environment.")
+            return None
+            
         # Specify the GOOGLE_CLIENT_ID of the app that accesses the backend:
         idinfo = id_token.verify_oauth2_token(token, requests.Request(), GOOGLE_CLIENT_ID)
 
         # ID token is valid. Get the user's Google Account ID from the decoded token.
         # userid = idinfo['sub']
         return idinfo
-    except Exception:
-        # Invalid token
+    except Exception as e:
+        print(f"Google token verification failed: {e}")
         return None
 
 def verify_password(plain_password, hashed_password):

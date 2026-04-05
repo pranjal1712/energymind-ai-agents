@@ -173,7 +173,7 @@ function Signup({ onSignup }) {
           <GoogleLogin
             onSuccess={handleGoogleSuccess}
             onError={() => setError('Google Sign-up failed')}
-            width="340"
+            width={window.innerWidth < 400 ? "250" : "340"}
             theme="filled_black"
             shape="pill"
           />
@@ -191,15 +191,15 @@ function Signup({ onSignup }) {
           align-items: center;
           justify-content: center;
         }
-        .premium-card { width: 100%; max-width: 440px; padding: 0.75rem 1.75rem; }
+        .premium-card { width: 100%; max-width: 500px; padding: 0.75rem 2rem; }
         .auth-icon-container { display: flex; justify-content: center; margin-bottom: 0.25rem; }
-        .auth-icon { width: 56px; height: 56px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .auth-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
         .auth-card-logo { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: screen; filter: brightness(1.1); }
-        .form-group { margin-bottom: 0.5rem; }
-        .form-group label { display: block; margin-bottom: 0.25rem; font-size: 0.8rem; font-weight: 600; color: var(--text-main); }
-        .auth-form { margin-top: 0.25rem; }
-        .auth-footer { margin-top: 0.75rem; text-align: center; font-size: 0.85rem; color: rgba(255, 255, 255, 0.85); }
-        .auth-divider { margin: 0.75rem 0; display: flex; align-items: center; justify-content: center; position: relative; }
+        .form-group { margin-bottom: 0.4rem; }
+        .form-group label { display: block; margin-bottom: 0.2rem; font-size: 0.75rem; font-weight: 600; color: var(--text-main); }
+        .auth-form { margin-top: 0.2rem; }
+        .auth-footer { margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); }
+        .auth-divider { margin: 0.5rem 0; display: flex; align-items: center; justify-content: center; position: relative; }
         .error-message {
           background: rgba(239, 68, 68, 0.1);
           border: 1px solid rgba(239, 68, 68, 0.2);

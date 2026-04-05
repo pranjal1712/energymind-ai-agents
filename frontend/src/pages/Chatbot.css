@@ -28,6 +28,15 @@
   animation: orbFloat 20s infinite alternate ease-in-out;
 }
 
+@media (max-width: 768px) {
+  .chatbot-background-glow {
+    width: 250px !important;
+    height: 250px !important;
+    opacity: 0.12 !important;
+    filter: blur(60px) !important;
+  }
+}
+
 @keyframes orbFloat {
   0% { transform: translate(0, 0) scale(1); }
   50% { transform: translate(50px, -30px) scale(1.1); }
@@ -309,6 +318,11 @@
   padding: 0.75rem;
   border-top: 1px solid rgba(255, 255, 255, 0.05);
   position: relative;
+  transition: padding 0.3s ease;
+}
+
+.sidebar.collapsed .sidebar-footer {
+  padding: 0.75rem 0.5rem;
 }
 
 .user-profile-menu {
@@ -328,6 +342,12 @@
   z-index: 200;
   box-shadow: 0 10px 30px rgba(0,0,0,0.5);
   animation: profileSlideUp 0.2s ease;
+}
+
+.user-profile-menu.slim-menu {
+  left: 0.5rem;
+  width: 140px;
+  right: auto;
 }
 
 .menu-item {
@@ -363,6 +383,11 @@
   border-radius: 12px;
   transition: all 0.2s ease;
   cursor: pointer;
+}
+
+.user-profile-block.slim {
+  padding: 0.75rem 0.25rem;
+  justify-content: center;
 }
 
 .user-profile-block:hover, .user-profile-block.active {
@@ -426,7 +451,7 @@
 }
 
 .main-header {
-  padding: 0 2rem;
+  padding: 0 4rem;
   height: 72px;
   display: flex;
   align-items: center;
@@ -633,6 +658,58 @@
   background: rgba(255, 255, 255, 0.03);
   border: 1px solid rgba(255, 255, 255, 0.08);
   position: relative;
+}
+
+/* New Thinking Status Style (No Box) */
+.thinking-container {
+  padding: 0.5rem 1rem;
+  margin-bottom: 2rem;
+  align-self: flex-start;
+  animation: fadeIn 0.4s ease-out;
+}
+
+.thinking-content-new {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.95rem;
+  font-weight: 500;
+}
+
+.typing-dots {
+  display: flex;
+  gap: 4px;
+}
+
+.typing-dots span {
+  width: 5px;
+  height: 5px;
+  background: #6366f1;
+  border-radius: 50%;
+  animation: typingBounce 1.4s infinite;
+  box-shadow: 0 0 10px rgba(99, 102, 241, 0.4);
+}
+
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes typingBounce {
+  0%, 100% { transform: translateY(0); opacity: 0.3; }
+  50% { transform: translateY(-4px); opacity: 1; }
+}
+
+.status-text-anim {
+  font-family: 'Outfit', sans-serif;
+  letter-spacing: 0.01rem;
+  font-style: italic;
+  animation: statusSlide 3s infinite ease-in-out;
+}
+
+@keyframes statusSlide {
+  0% { opacity: 0; transform: translateY(5px); filter: blur(2px); }
+  10%, 90% { opacity: 1; transform: translateY(0); filter: blur(0); }
+  100% { opacity: 0; transform: translateY(-5px); filter: blur(2px); }
 }
 
 .msg-options-container {

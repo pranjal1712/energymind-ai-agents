@@ -31,7 +31,7 @@ const Sidebar = ({
   };
 
   return (
-    <aside className={`sidebar glass ${!isSidebarOpen ? 'collapsed' : ''}`}>
+    <aside className={`sidebar glass ${!isSidebarOpen ? 'collapsed' : 'open'}`}>
       <div className="sidebar-header">
         <div
           className="logo-section-sidebar"
@@ -40,7 +40,17 @@ const Sidebar = ({
         >
           <img src={logo} alt="Logo" style={{ width: '26px', height: '26px', mixBlendMode: 'screen' }} />
         </div>
-        {isSidebarOpen && (
+        
+        {/* Mobile-only close button */}
+        <button 
+          className="sidebar-close-btn-mobile" 
+          onClick={() => setIsSidebarOpen(false)}
+          style={{ display: window.innerWidth <= 768 ? 'flex' : 'none' }}
+        >
+          <PanelLeft size={20} />
+        </button>
+
+        {isSidebarOpen && window.innerWidth > 768 && (
           <button className="sidebar-toggle-btn-original" onClick={() => setIsSidebarOpen(false)}>
             <PanelLeft size={18} />
           </button>
@@ -102,8 +112,8 @@ const Sidebar = ({
       </nav>
 
       <div className="sidebar-footer" ref={profileMenuRef}>
-        {isProfileMenuOpen && isSidebarOpen && (
-          <div className="user-profile-menu glass">
+        {isProfileMenuOpen && (
+          <div className={`user-profile-menu glass ${!isSidebarOpen ? 'slim-menu' : ''}`}>
             <button className="menu-item" onClick={onOpenProfile}>
               <User size={16} />
               <span>Profile</span>
@@ -117,7 +127,7 @@ const Sidebar = ({
 
         <div
           className={`user-profile-block ${!isSidebarOpen ? 'slim' : ''} ${isProfileMenuOpen ? 'active' : ''}`}
-          onClick={() => isSidebarOpen && setIsProfileMenuOpen(!isProfileMenuOpen)}
+          onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
         >
           <div className="user-avatar-circle">
             {getInitials(userData.name)}
