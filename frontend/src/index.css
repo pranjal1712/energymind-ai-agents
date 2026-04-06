@@ -167,6 +167,16 @@ input {
   overflow: hidden;
 }
 
+/* Mobile Glow Fix: Pulling the glow higher and making it more vibrant */
+@media (max-width: 768px) {
+  .bg-radial {
+    background:
+      radial-gradient(circle at 50% 95%, rgba(16, 185, 129, 0.45) 0%, rgba(0, 0, 0, 0) 75%),
+      radial-gradient(circle at 50% 75%, rgba(16, 185, 129, 0.2) 0%, rgba(0, 0, 0, 0) 60%),
+      #000000;
+  }
+}
+
 .bg-radial::before {
   content: "";
   position: absolute;
