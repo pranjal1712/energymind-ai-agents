@@ -99,6 +99,11 @@ a:hover {
   text-decoration: underline !important;
 }
 
+.w-full { 
+  width: 100% !important; 
+  display: block !important;
+}
+
 button {
   cursor: pointer;
   border: none;
@@ -175,12 +180,12 @@ input {
   overflow: hidden;
 }
 
-/* Mobile Glow Fix: Pulling the glow even higher and making it more vibrant */
+/* Mobile Glow Fix: Making it HUGE and BRIGHT in the center-bottom */
 @media (max-width: 768px) {
   .bg-radial {
     background:
-      radial-gradient(circle at 50% 90%, rgba(16, 185, 129, 0.6) 0%, rgba(0, 0, 0, 0) 80%),
-      radial-gradient(circle at 50% 60%, rgba(16, 185, 129, 0.3) 0%, rgba(0, 0, 0, 0) 70%),
+      radial-gradient(circle at 50% 80%, rgba(16, 185, 129, 0.7) 0%, rgba(0, 0, 0, 0) 85%),
+      radial-gradient(circle at 50% 50%, rgba(16, 185, 129, 0.3) 0%, rgba(0, 0, 0, 0) 70%),
       #000000 !important;
   }
 }
