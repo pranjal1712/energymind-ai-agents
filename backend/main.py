@@ -33,33 +33,59 @@ init_db()
 
 app = FastAPI(title="Autonomous Energy Researcher API")
 
-# Add Custom Headers Middleware (Before CORS)
+# =========================
+# 🛡️ GLOBAL CUSTOM MIDDLEWARE (CORS & HEADERS)
+# =========================
 @app.middleware("http")
-async def add_custom_headers(request, call_next):
-    # Skip COOP for OPTIONS requests or simple API calls if needed
-    if request.method == "OPTIONS":
-        return await call_next(request)
-        
-    response = await call_next(request)
-    # Add COOP header ONLY if it's not already there and if needed
-    # This header is primarily for the HTML pages, but let's keep it for safety 
-    # but ensure it's not breaking preflights.
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    return response
+async def manual_cors_and_headers(request, call_next):
+    origin = request.headers.get("Origin")
+    method = request.method
+    
+    # Debug Logging (Check Render Logs for this!)
+    print(f"--- [REQUEST] {method} from {origin} to {request.url.path} ---")
 
-# CORS Middleware (Should be added LAST to be the OUTERMOST)
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
+    # 1. Handle Preflight (OPTIONS) Requests
+    if method == "OPTIONS":
+        from fastapi.responses import Response
+        response = Response(status_code=204)
+        response.headers["Access-Control-Allow-Origin"] = origin or "*"
+        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin"
+        response.headers["Access-Control-Allow-Credentials"] = "true"
+        response.headers["Access-Control-Max-Age"] = "86400"
+        return response
+
+    # 2. Handle Normal Requests
+    response = await call_next(request)
+    
+    # Inject CORS Headers
+    # We allow the specific Vercel URL or fall back to the requester's origin
+    allowed_origins = [
         "https://energymind-research-ai.vercel.app",
+        "https://energymind-research-ai.vercel.app/", # With slash just in case
         "http://localhost:5173",
         "http://localhost:3000"
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
-)
+    ]
+    
+    if origin in allowed_origins:
+        response.headers["Access-Control-Allow-Origin"] = origin
+    elif not origin:
+        # For non-browser requests
+        pass
+    else:
+        # For debugging: let's allow it but we'll see the mismatch in logs
+        response.headers["Access-Control-Allow-Origin"] = origin
+
+    response.headers["Access-Control-Allow-Credentials"] = "true"
+    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin"
+    
+    # 3. Handle COOP for Google Auth
+    # Add COOP header ONLY if it's not already there and if needed
+    if "Cross-Origin-Opener-Policy" not in response.headers:
+        response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+        
+    return response
 
 # Allow optional auth for guest mode
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
