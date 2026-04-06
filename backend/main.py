@@ -33,8 +33,21 @@ init_db()
 
 app = FastAPI(title="Autonomous Energy Researcher API")
 
-from fastapi.middleware.cors import CORSMiddleware
+# Add Custom Headers Middleware (Before CORS)
+@app.middleware("http")
+async def add_custom_headers(request, call_next):
+    # Skip COOP for OPTIONS requests or simple API calls if needed
+    if request.method == "OPTIONS":
+        return await call_next(request)
+        
+    response = await call_next(request)
+    # Add COOP header ONLY if it's not already there and if needed
+    # This header is primarily for the HTML pages, but let's keep it for safety 
+    # but ensure it's not breaking preflights.
+    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
+    return response
 
+# CORS Middleware (Should be added LAST to be the OUTERMOST)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -45,14 +58,8 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["*"],
 )
-
-@app.middleware("http")
-async def add_process_time_header(request, call_next):
-    response = await call_next(request)
-    # Add COOP header to allow Google Auth popups to communicate
-    response.headers["Cross-Origin-Opener-Policy"] = "same-origin-allow-popups"
-    return response
 
 # Allow optional auth for guest mode
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
