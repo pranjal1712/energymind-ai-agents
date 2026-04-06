@@ -11,6 +11,12 @@ DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./users.db")
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
+# Remove pgbouncer parameter if present (not supported by psycopg2)
+if "?pgbouncer=true" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("?pgbouncer=true", "")
+elif "&pgbouncer=true" in DATABASE_URL:
+    DATABASE_URL = DATABASE_URL.replace("&pgbouncer=true", "")
+
 # SQLite needs check_same_thread: False, but Postgres doesn't
 is_sqlite = DATABASE_URL.startswith("sqlite")
 connect_args = {"check_same_thread": False} if is_sqlite else {
