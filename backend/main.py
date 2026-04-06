@@ -28,10 +28,19 @@ from .auth import verify_password, get_password_hash, create_access_token, decod
 # Initialize Database
 # ... (imports)
 
-# Initialize Database
-init_db()
-
+# App Initialization
 app = FastAPI(title="Autonomous Energy Researcher API")
+
+# Startup Event to initialize DB gracefully
+@app.on_event("startup")
+async def startup_event():
+    print("🚀 Initializing Database...")
+    try:
+        init_db()
+        print("✅ Database Initialized Successfully")
+    except Exception as e:
+        print(f"❌ Database Initialization Failed: {e}")
+        # We don't raise here so the app can still start and we can see CORS logs
 
 # =========================
 # 🛡️ GLOBAL CUSTOM MIDDLEWARE (CORS & HEADERS)
@@ -47,16 +56,34 @@ async def manual_cors_and_headers(request, call_next):
     # 1. Handle Preflight (OPTIONS) Requests
     if method == "OPTIONS":
         from fastapi.responses import Response
+        # We Echo the origin or use * for robustness
+        resp_origin = origin or "*"
         response = Response(status_code=204)
-        response.headers["Access-Control-Allow-Origin"] = origin or "*"
+        response.headers["Access-Control-Allow-Origin"] = resp_origin
         response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin"
+        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin, DNT, Keep-Alive, User-Agent"
         response.headers["Access-Control-Allow-Credentials"] = "true"
         response.headers["Access-Control-Max-Age"] = "86400"
+        response.headers["Access-Control-Expose-Headers"] = "*"
         return response
 
-    # 2. Handle Normal Requests
-    response = await call_next(request)
+    # 2. Handle Normal Requests (wrap in try-except for better error CORS)
+    try:
+        response = await call_next(request)
+    except Exception as e:
+        import traceback
+        from fastapi.responses import JSONResponse
+        print(f"🔥 UNHANDLED ERROR: {e}")
+        traceback.print_exc()
+        # Even on error, we MUST return CORS headers
+        return JSONResponse(
+            status_code=500,
+            content={"detail": "Internal Server Error during middleware execution"},
+            headers={
+                "Access-Control-Allow-Origin": origin or "*",
+                "Access-Control-Allow-Credentials": "true"
+            }
+        )
     
     # Inject CORS Headers
     # We allow the specific Vercel URL or fall back to the requester's origin
@@ -72,13 +99,16 @@ async def manual_cors_and_headers(request, call_next):
     elif not origin:
         # For non-browser requests
         pass
-    else:
-        # For debugging: let's allow it but we'll see the mismatch in logs
+    # For debugging: let's allow it but we'll see the mismatch in logs
+    if origin:
         response.headers["Access-Control-Allow-Origin"] = origin
+    else:
+        response.headers["Access-Control-Allow-Origin"] = "*"
 
     response.headers["Access-Control-Allow-Credentials"] = "true"
     response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin"
+    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin, DNT, Keep-Alive, User-Agent"
+    response.headers["Access-Control-Expose-Headers"] = "*"
     
     # 3. Handle COOP for Google Auth
     # Add COOP header ONLY if it's not already there and if needed
