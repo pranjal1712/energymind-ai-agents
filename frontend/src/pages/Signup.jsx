@@ -184,66 +184,6 @@ function Signup({ onSignup }) {
         </p>
       </div>
 
-      <style>{`
-        .auth-page {
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .premium-card { width: 100%; max-width: 500px; padding: 0.75rem 2rem; }
-        .auth-icon-container { display: flex; justify-content: center; margin-bottom: 0.25rem; }
-        .auth-icon { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .auth-card-logo { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: screen; filter: brightness(1.1); }
-        .form-group { margin-bottom: 0.4rem; }
-        .form-group label { display: block; margin-bottom: 0.2rem; font-size: 0.75rem; font-weight: 600; color: var(--text-main); }
-        .auth-form { margin-top: 0.2rem; }
-        .auth-footer { margin-top: 0.5rem; text-align: center; font-size: 0.8rem; color: rgba(255, 255, 255, 0.85); }
-        .auth-divider { margin: 0.5rem 0; display: flex; align-items: center; justify-content: center; position: relative; }
-        .error-message {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          color: #ef4444;
-          padding: 0.6rem;
-          border-radius: 10px;
-          font-size: 0.8rem;
-          margin-bottom: 0.75rem;
-          text-align: center;
-        }
-        .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1); }
-        .auth-divider span { padding: 0 0.75rem; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-        .btn-google { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; padding: 0.75rem; border-radius: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.75rem; transition: var(--transition); cursor: pointer; backdrop-filter: blur(8px); }
-        .btn-google:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); transform: translateY(-2px); }
-        .btn-google img { width: 18px; height: 18px; }
-        .google-btn-wrapper {
-          display: flex;
-          justify-content: center;
-          width: 100%;
-          margin-top: 0.5rem;
-          min-height: 40px;
-        }
-        .w-full { width: 100%; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
-
-        .password-requirements {
-          margin-top: 0.4rem;
-          display: flex;
-          flex-direction: column;
-          gap: 0.25rem;
-        }
-        .requirement {
-          display: flex;
-          align-items: center;
-          gap: 0.4rem;
-          font-size: 0.65rem;
-          transition: var(--transition);
-        }
-        .requirement.invalid {
-          color: #ef4444;
-        }
-        .requirement span {
-          white-space: nowrap;
-        }
-      `}</style>
     </div>
   );
 }

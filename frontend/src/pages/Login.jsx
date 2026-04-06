@@ -147,50 +147,6 @@ function Login({ onLogin }) {
         </p>
       </div>
 
-      <style>{`
-        .auth-page {
-          height: 100vh;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-        .premium-card { width: 100%; max-width: 480px; padding: 1rem 1.75rem; text-shadow: 0 2px 4px rgba(0,0,0,0.2); }
-        .auth-icon-container { display: flex; justify-content: center; margin-bottom: 0.25rem; }
-        .auth-icon { width: 44px; height: 44px; border-radius: 50%; display: flex; align-items: center; justify-content: center; overflow: hidden; }
-        .auth-card-logo { width: 100%; height: 100%; object-fit: cover; mix-blend-mode: screen; filter: brightness(1.1); }
-        .auth-title { font-size: 2.2rem !important; margin-bottom: 0.25rem !important; }
-        .auth-subtitle { font-size: 0.85rem !important; margin-bottom: 0.75rem !important; opacity: 1 !important; transform: none !important; animation: none !important; }
-        .form-group { margin-bottom: 0.65rem; }
-        .form-group label { display: block; margin-bottom: 0.2rem; font-size: 0.8rem; font-weight: 600; color: var(--text-main); }
-        .password-input-container { position: relative; }
-        .auth-form { margin-top: 0.1rem; }
-        .auth-footer { margin-top: 0.5rem; text-align: center; font-size: 0.85rem; color: rgba(255, 255, 255, 0.85); }
-        .auth-divider { margin: 0.75rem 0; display: flex; align-items: center; justify-content: center; position: relative; }
-        .auth-divider::before, .auth-divider::after { content: ""; flex: 1; height: 1px; background: rgba(255, 255, 255, 0.1); }
-        .auth-divider span { padding: 0 0.75rem; font-size: 0.75rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; }
-        
-        .error-message {
-          background: rgba(239, 68, 68, 0.1);
-          border: 1px solid rgba(239, 68, 68, 0.2);
-          color: #ef4444;
-          padding: 0.75rem;
-          border-radius: 12px;
-          font-size: 0.85rem;
-          margin-bottom: 1rem;
-          text-align: center;
-        }
-        .btn-google { background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); color: #fff; padding: 0.75rem; border-radius: 12px; font-weight: 600; display: flex; align-items: center; justify-content: center; gap: 0.75rem; transition: var(--transition); cursor: pointer; backdrop-filter: blur(8px); }
-        .btn-google:hover { background: rgba(255, 255, 255, 0.1); border-color: rgba(255, 255, 255, 0.3); transform: translateY(-2px); }
-        .btn-google img { width: 18px; height: 18px; }
-        .google-btn-wrapper {
-          display: flex;
-          justify-content: center;
-          width: 100%;
-          margin-top: 0.5rem;
-          min-height: 40px;
-        }
-        .w-full { width: 100%; border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3); }
-      `}</style>
     </div>
   );
 }
