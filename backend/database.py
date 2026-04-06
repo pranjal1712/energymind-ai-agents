@@ -13,9 +13,17 @@ if DATABASE_URL.startswith("postgres://"):
 
 # SQLite needs check_same_thread: False, but Postgres doesn't
 is_sqlite = DATABASE_URL.startswith("sqlite")
-connect_args = {"check_same_thread": False} if is_sqlite else {}
+connect_args = {"check_same_thread": False} if is_sqlite else {
+    "sslmode": "require"
+}
 
-engine = create_engine(DATABASE_URL, connect_args=connect_args)
+# Create engine with pool_pre_ping to refresh stale connections
+engine = create_engine(
+    DATABASE_URL, 
+    connect_args=connect_args,
+    pool_pre_ping=True,
+    pool_recycle=3600
+)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
