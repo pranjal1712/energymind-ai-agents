@@ -105,7 +105,7 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: S
 # =========================
 # Auth Routes
 # =========================
-@app.post("/signup", response_model=Token)
+@app.post("/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
@@ -116,24 +116,41 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_pw = get_password_hash(user.password)
-    new_user = User(username=user.username, email=user.email, hashed_password=hashed_pw)
+    verification_token = secrets.token_urlsafe(32)
+    new_user = User(
+        username=user.username, 
+        email=user.email, 
+        hashed_password=hashed_pw,
+        is_verified=0,
+        verification_token=verification_token
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": new_user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer", "username": new_user.username}
+    try:
+        send_verification_email(new_user.email, verification_token, new_user.username)
+    except Exception as email_err:
+        print(f"Email send failed (non-critical): {email_err}")
+    
+    return {"message": "Please check your email to verify your account."}
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.username == form_data.username).first()
+    user = db.query(User).filter(
+        (User.username == form_data.username) | (User.email == form_data.username)
+    ).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
+            detail="Incorrect email/username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please verify your email address before logging in.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
