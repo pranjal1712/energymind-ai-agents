@@ -74,17 +74,18 @@ def init_db():
     # Add columns if they do not exist
     try:
         with engine.connect() as conn:
-            # SQLite uses a specific syntax or we can just try to run it and ignore if it exists
+            # PostgreSQL requires rollback on failed queries within a connection
             try:
                 conn.execute(text("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0"))
+                conn.commit()
             except Exception:
-                pass
+                conn.rollback()
             
             try:
                 conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR"))
+                conn.commit()
             except Exception:
-                pass
-            conn.commit()
+                conn.rollback()
     except Exception as e:
         print(f"Error updating schema: {e}")
 
