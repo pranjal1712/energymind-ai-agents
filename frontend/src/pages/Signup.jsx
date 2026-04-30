@@ -14,6 +14,7 @@ function Signup({ onSignup }) {
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [verificationSent, setVerificationSent] = useState(false);
 
   const validation = {
     length: password.length >= 8,
@@ -59,12 +60,7 @@ function Signup({ onSignup }) {
         const username = name.toLowerCase().replace(/\s+/g, '_');
         await api.signup(username, email, password);
         
-        // After signup, we log them in to get the token
-        await api.login(username, password);
-        
-        localStorage.setItem('user', JSON.stringify({ name, email }));
-        onSignup();
-        navigate('/chatbot');
+        setVerificationSent(true);
       } catch (err) {
         setError(err.message || 'Signup failed. Please try again.');
       } finally {
@@ -106,7 +102,20 @@ function Signup({ onSignup }) {
 
         {error && <div className="error-message">{error}</div>}
 
-        <form className="auth-form" onSubmit={handleSubmit}>
+        {verificationSent ? (
+          <div style={{ textAlign: 'center', margin: '2rem 0' }}>
+            <Check size={48} style={{ color: '#10b981', margin: '0 auto 1rem' }} />
+            <h2 style={{ fontSize: '1.25rem', marginBottom: '0.5rem' }}>Check your email</h2>
+            <p style={{ color: '#aaaaaa', fontSize: '0.9rem', marginBottom: '1.5rem' }}>
+              We've sent a verification link to your email address. Please verify to continue.
+            </p>
+            <button className="btn-primary w-full" onClick={() => navigate('/login')}>
+              Go to Login
+            </button>
+          </div>
+        ) : (
+          <>
+            <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
             <label>Full Name</label>
             <input name="userName" type="text" className="input-field" placeholder="John Doe" required />
@@ -182,6 +191,8 @@ function Signup({ onSignup }) {
         <p className="auth-footer">
           Already have an account? <Link to="/login">Sign in</Link>
         </p>
+          </>
+        )}
       </div>
 
     </div>

@@ -95,6 +95,12 @@ const api = {
     return data;
   },
 
+  async verifyEmail(token) {
+    return this.request(`/verify-email?token=${token}`, {
+      method: 'GET',
+    });
+  },
+
   async getMe() {
     const token = this.getToken();
     if (!token || token === 'undefined' || token === 'null') {

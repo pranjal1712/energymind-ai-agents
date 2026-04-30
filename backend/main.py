@@ -24,6 +24,8 @@ from .models import ResearchRequest, ResearchResponse
 from .research_chain import run_full_research
 from .database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db
 from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_google_token
+import secrets
+from .email_service import send_verification_email
 
 # Initialize Database
 # ... (imports)
@@ -34,12 +36,12 @@ app = FastAPI(title="Autonomous Energy Researcher API")
 # Startup Event to initialize DB gracefully
 @app.on_event("startup")
 async def startup_event():
-    print("🚀 Initializing Database...")
+    print("Initializing Database...")
     try:
         init_db()
-        print("✅ Database Initialized Successfully")
+        print("Database Initialized Successfully")
     except Exception as e:
-        print(f"❌ Database Initialization Failed: {e}")
+        print(f"Database Initialization Failed: {e}")
         # We don't raise here so the app can still start and we can see CORS logs
 
 # =========================
@@ -193,7 +195,7 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: S
 # =========================
 # Auth Routes
 # =========================
-@app.post("/signup", response_model=Token)
+@app.post("/signup")
 def signup(user: UserCreate, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
@@ -204,16 +206,21 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_pw = get_password_hash(user.password)
-    new_user = User(username=user.username, email=user.email, hashed_password=hashed_pw)
+    verification_token = secrets.token_urlsafe(32)
+    new_user = User(
+        username=user.username, 
+        email=user.email, 
+        hashed_password=hashed_pw,
+        is_verified=0,
+        verification_token=verification_token
+    )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": new_user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer", "username": new_user.username}
+    send_verification_email(new_user.email, verification_token, new_user.username)
+    
+    return {"message": "Please check your email to verify your account."}
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -226,6 +233,13 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Incorrect email/username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+        
+    if not user.is_verified:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Please verify your email address before logging in.",
             headers={"WWW-Authenticate": "Bearer"},
         )
     
@@ -257,7 +271,7 @@ async def google_auth(request: GoogleAuthRequest, db: Session = Depends(get_db))
             username = f"{base_username}{counter}"
             counter += 1
             
-        user = User(username=username, email=email, hashed_password="GOOGLE_AUTH")
+        user = User(username=username, email=email, hashed_password="GOOGLE_AUTH", is_verified=1, verification_token=None)
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -271,6 +285,17 @@ async def google_auth(request: GoogleAuthRequest, db: Session = Depends(get_db))
 @app.get("/me", response_model=UserResponse)
 async def read_users_me(current_user: User = Depends(get_current_user)):
     return {"username": current_user.username, "email": current_user.email}
+
+@app.get("/verify-email")
+def verify_email(token: str, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.verification_token == token).first()
+    if not user:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification token")
+    
+    user.is_verified = 1
+    user.verification_token = None
+    db.commit()
+    return {"message": "Email verified successfully"}
 
 # =========================
 # Research Routes

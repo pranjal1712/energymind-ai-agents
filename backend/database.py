@@ -1,4 +1,4 @@
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Text
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, ForeignKey, Text, text
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker, relationship
 from datetime import datetime
@@ -43,6 +43,8 @@ class User(Base):
     hashed_password = Column(String)
     chats_count = Column(Integer, default=0)
     limit_reached_at = Column(DateTime, nullable=True)
+    is_verified = Column(Integer, default=0) # 0 for False, 1 for True
+    verification_token = Column(String, nullable=True)
     
     chats = relationship("ChatHistory", back_populates="owner")
 
@@ -68,6 +70,23 @@ class KnowledgeBase(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    
+    # Add columns if they do not exist
+    try:
+        with engine.connect() as conn:
+            # SQLite uses a specific syntax or we can just try to run it and ignore if it exists
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0"))
+            except Exception:
+                pass
+            
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR"))
+            except Exception:
+                pass
+            conn.commit()
+    except Exception as e:
+        print(f"Error updating schema: {e}")
 
 def get_db():
     db = SessionLocal()
