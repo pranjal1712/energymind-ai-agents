@@ -23,5 +23,5 @@ COPY . .
 EXPOSE 8000
 
 # Command to run the application using Gunicorn for production
-# We use the -m backend.main approach to handle relative imports correctly
-CMD ["gunicorn", "-w", "4", "-k", "uvicorn.workers.UvicornWorker", "backend.main:app", "--bind", "0.0.0.0:8000", "--timeout", "120"]
+# Use $PORT so Render can assign the port dynamically
+CMD ["sh", "-c", "gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:${PORT:-8000} --timeout 120"]
