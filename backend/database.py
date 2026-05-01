@@ -86,6 +86,8 @@ def init_db():
             try:
                 conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR"))
                 conn.commit()
+            except Exception:
+                conn.rollback()
             try:
                 conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
                 conn.commit()
