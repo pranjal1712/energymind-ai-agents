@@ -72,34 +72,34 @@ class KnowledgeBase(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
-    
-    # Add columns if they do not exist
-    try:
+
+    # Safely add new columns using IF NOT EXISTS (works on PostgreSQL & SQLite 3.35+)
+    migrations = [
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS is_verified INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP",
+    ]
+
+    # SQLite does NOT support IF NOT EXISTS for ALTER TABLE, use try/except instead
+    if is_sqlite:
         with engine.connect() as conn:
-            # PostgreSQL requires rollback on failed queries within a connection
-            try:
-                conn.execute(text("ALTER TABLE users ADD COLUMN is_verified INTEGER DEFAULT 0"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-            
-            try:
-                conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-            try:
-                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-            try:
-                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMP"))
-                conn.commit()
-            except Exception:
-                conn.rollback()
-    except Exception as e:
-        print(f"Error updating schema: {e}")
+            for sql in migrations:
+                # Convert to SQLite-compatible syntax (remove IF NOT EXISTS)
+                sqlite_sql = sql.replace(" IF NOT EXISTS", "")
+                try:
+                    conn.execute(text(sqlite_sql))
+                    conn.commit()
+                except Exception:
+                    conn.rollback()
+    else:
+        # PostgreSQL - IF NOT EXISTS works perfectly
+        with engine.connect() as conn:
+            for sql in migrations:
+                conn.execute(text(sql))
+            conn.commit()
+
+
 
 def get_db():
     db = SessionLocal()
