@@ -25,7 +25,7 @@ from .research_chain import run_full_research
 from .database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db
 from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_google_token
 import secrets
-from .email_service import send_verification_email
+from .email_service import send_verification_email, send_reset_email
 
 # Initialize Database
 # ... (imports)
@@ -296,6 +296,42 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user.verification_token = None
     db.commit()
     return {"message": "Email verified successfully"}
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+@app.post("/forgot-password")
+def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    # Always return success to prevent email enumeration attacks
+    if user:
+        reset_token = secrets.token_urlsafe(32)
+        user.reset_token = reset_token
+        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+        db.commit()
+        try:
+            send_reset_email(user.email, reset_token, user.username)
+        except Exception as e:
+            print(f"Reset email failed (non-critical): {e}")
+    return {"message": "If this email exists, a reset link has been sent."}
+
+@app.post("/reset-password")
+def reset_password(request: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == request.token).first()
+    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid or expired reset token.")
+    
+    user.hashed_password = get_password_hash(request.new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    db.commit()
+    return {"message": "Password reset successfully. You can now log in."}
+
+
 
 # =========================
 # Research Routes

@@ -101,6 +101,20 @@ const api = {
     });
   },
 
+  async forgotPassword(email) {
+    return this.request('/forgot-password', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
+  },
+
+  async resetPassword(token, new_password) {
+    return this.request('/reset-password', {
+      method: 'POST',
+      body: JSON.stringify({ token, new_password }),
+    });
+  },
+
   async getMe() {
     const token = this.getToken();
     if (!token || token === 'undefined' || token === 'null') {

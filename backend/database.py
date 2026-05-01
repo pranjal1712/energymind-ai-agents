@@ -45,6 +45,8 @@ class User(Base):
     limit_reached_at = Column(DateTime, nullable=True)
     is_verified = Column(Integer, default=0) # 0 for False, 1 for True
     verification_token = Column(String, nullable=True)
+    reset_token = Column(String, nullable=True)
+    reset_token_expires = Column(DateTime, nullable=True)
     
     chats = relationship("ChatHistory", back_populates="owner")
 
@@ -83,6 +85,14 @@ def init_db():
             
             try:
                 conn.execute(text("ALTER TABLE users ADD COLUMN verification_token VARCHAR"))
+                conn.commit()
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token VARCHAR"))
+                conn.commit()
+            except Exception:
+                conn.rollback()
+            try:
+                conn.execute(text("ALTER TABLE users ADD COLUMN reset_token_expires TIMESTAMP"))
                 conn.commit()
             except Exception:
                 conn.rollback()

@@ -1,17 +1,22 @@
 import React, { useState, useRef } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { Lock, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useMousePosition } from '../hooks/useMousePosition';
+import api from '../services/api';
 import logo from '../assets/logo-em.png';
 
 function ResetPassword() {
   const navigate = useNavigate();
   const pageRef = useRef(null);
   useMousePosition(pageRef);
+  const [searchParams] = useSearchParams();
+  const token = searchParams.get('token');
 
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [isReset, setIsReset] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
 
   const validation = {
     length: password.length >= 8,
@@ -25,12 +30,23 @@ function ResetPassword() {
   const canReset = isPasswordStrong && passwordsMatch;
   const showMismatchWarning = password && confirmPassword && password !== confirmPassword;
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (canReset) {
-      // Logic for password reset...
+    if (!canReset) return;
+    if (!token) {
+      setError('Invalid or missing reset token. Please request a new link.');
+      return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+      await api.resetPassword(token, password);
       setIsReset(true);
       setTimeout(() => navigate('/login'), 3000);
+    } catch (err) {
+      setError(err.message || 'Reset failed. The link may have expired.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -86,6 +102,8 @@ function ResetPassword() {
 
         <h1 className="auth-title" style={{ fontSize: '2.1rem', marginBottom: '0.25rem' }}>New Password</h1>
         <p className="auth-subtitle" style={{ fontSize: '0.85rem', marginBottom: '1rem' }}>Set a secure password for your account</p>
+
+        {error && <div className="error-message">{error}</div>}
 
         <form className="auth-form" onSubmit={handleSubmit}>
           <div className="form-group">
