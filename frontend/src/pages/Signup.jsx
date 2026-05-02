@@ -60,7 +60,8 @@ function Signup({ onSignup }) {
         const username = name.toLowerCase().replace(/\s+/g, '_');
         await api.signup(username, email, password);
         
-        setVerificationSent(true);
+        // Redirect to verify-otp page
+        navigate(`/verify-otp?email=${encodeURIComponent(email)}`);
       } catch (err) {
         setError(err.message || 'Signup failed. Please try again.');
       } finally {

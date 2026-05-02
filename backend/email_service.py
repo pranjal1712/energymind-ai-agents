@@ -31,16 +31,14 @@ def _send_email(msg):
     server.sendmail(SMTP_EMAIL, msg['To'], msg.as_string())
     server.quit()
 
-def send_verification_email(to_email: str, token: str, username: str):
+def send_verification_email(to_email: str, otp: str, username: str):
     if not SMTP_EMAIL or not SMTP_PASSWORD:
-        print("Warning: SMTP credentials not set.")
+        print("CRITICAL: SMTP_EMAIL or SMTP_PASSWORD not found in environment variables!")
         return False
 
-    verification_link = f"{FRONTEND_URL}/verify-email?token={token}"
-
     msg = MIMEMultipart("related")
-    msg['Subject'] = "Verify your EnergyMind AI Account"
-    msg['From'] = f"Energymind AI <{SMTP_EMAIL}>"
+    msg['Subject'] = f"{otp} is your EnergyMind AI Verification Code"
+    msg['From'] = f"EnergyMind AI <{SMTP_EMAIL}>"
     msg['To'] = to_email
 
     msg_alternative = MIMEMultipart("alternative")
@@ -51,13 +49,13 @@ def send_verification_email(to_email: str, token: str, username: str):
       <body style="font-family: Arial, sans-serif; background-color: #0b0b0b; color: #ffffff; padding: 20px; text-align: center;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #1a1a1a; padding: 40px; border-radius: 10px; border: 1px solid #333;">
           <img src="cid:logo" alt="EnergyMind Logo" style="width: 100px; margin-bottom: 20px;" />
-          <h1 style="color: #ffffff; margin-bottom: 10px;">Welcome to EnergyMind AI, {username}!</h1>
+          <h1 style="color: #ffffff; margin-bottom: 10px;">Verify your Email</h1>
           <p style="color: #aaaaaa; font-size: 16px; margin-bottom: 30px;">
-            Thank you for registering. To complete your signup, please verify your email address.
+            Hi {username}, use the 6-digit code below to verify your EnergyMind AI account.
           </p>
-          <a href="{verification_link}" style="display: inline-block; background-color: #3b82f6; color: #ffffff; text-decoration: none; padding: 12px 24px; border-radius: 5px; font-weight: bold; font-size: 16px;">
-            Verify Email
-          </a>
+          <div style="background-color: #333; color: #ffffff; font-size: 36px; font-weight: bold; letter-spacing: 10px; padding: 20px; border-radius: 8px; display: inline-block; margin-bottom: 30px; border: 1px dashed #555;">
+            {otp}
+          </div>
           <p style="color: #666666; font-size: 12px; margin-top: 40px;">
             If you did not request this, please ignore this email.
           </p>
@@ -69,11 +67,14 @@ def send_verification_email(to_email: str, token: str, username: str):
     _attach_logo(msg)
 
     try:
+        print(f"DEBUG: Attempting to send OTP email to {to_email}...")
         _send_email(msg)
-        print(f"Verification email sent to {to_email}")
+        print(f"DEBUG: OTP email sent successfully to {to_email}")
         return True
     except Exception as e:
-        print(f"Failed to send verification email: {str(e)}")
+        print(f"CRITICAL ERROR: Failed to send email to {to_email}: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return False
 
 

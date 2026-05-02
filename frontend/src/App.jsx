@@ -5,6 +5,7 @@ import Signup from './pages/Signup';
 import ForgotPassword from './pages/ForgotPassword';
 import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
+import VerifyOtp from './pages/VerifyOtp';
 import Chatbot from './pages/Chatbot';
 import api from './services/api';
 import './index.css';
@@ -39,6 +40,7 @@ function App() {
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/verify-otp" element={<VerifyOtp />} />
 
 
           <Route

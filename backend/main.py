@@ -206,21 +206,22 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
         raise HTTPException(status_code=400, detail="Email already registered")
     
     hashed_pw = get_password_hash(user.password)
-    verification_token = secrets.token_urlsafe(32)
+    # Generate 6-digit OTP
+    otp = "".join([str(secrets.randbelow(10)) for _ in range(6)])
     new_user = User(
         username=user.username, 
         email=user.email, 
         hashed_password=hashed_pw,
         is_verified=0,
-        verification_token=verification_token
+        verification_token=otp  # Storing OTP in the same column
     )
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
     
-    send_verification_email(new_user.email, verification_token, new_user.username)
+    send_verification_email(new_user.email, otp, new_user.username)
     
-    return {"message": "Please check your email to verify your account."}
+    return {"message": "Please check your email for the 6-digit verification code."}
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
@@ -296,6 +297,24 @@ def verify_email(token: str, db: Session = Depends(get_db)):
     user.verification_token = None
     db.commit()
     return {"message": "Email verified successfully"}
+
+class VerifyOtpRequest(BaseModel):
+    email: str
+    otp: str
+
+@app.post("/verify-otp")
+def verify_otp(request: VerifyOtpRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == request.email).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    if user.verification_token != request.otp:
+        raise HTTPException(status_code=400, detail="Invalid verification code")
+    
+    user.is_verified = 1
+    user.verification_token = None
+    db.commit()
+    return {"message": "Email verified successfully. You can now log in."}
 
 class ForgotPasswordRequest(BaseModel):
     email: str

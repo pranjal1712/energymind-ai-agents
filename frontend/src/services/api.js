@@ -101,6 +101,13 @@ const api = {
     });
   },
 
+  async verifyOtp(email, otp) {
+    return this.request('/verify-otp', {
+      method: 'POST',
+      body: JSON.stringify({ email, otp }),
+    });
+  },
+
   async forgotPassword(email) {
     return this.request('/forgot-password', {
       method: 'POST',
