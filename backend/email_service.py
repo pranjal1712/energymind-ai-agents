@@ -25,25 +25,30 @@ def _attach_logo(msg):
             print(f"Could not attach logo: {e}")
 
 def _send_email(msg):
-    # Use Port 465 (SSL) which is often more reliable on Render/Cloud providers
-    # than Port 587 (STARTTLS)
+    # Port 465 is usually faster and more secure on Render
     try:
         import ssl
         context = ssl.create_default_context()
-        
-        # Using SMTP_SSL on port 465
-        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=30) as server:
+        # Reduce timeout to 7 seconds for faster response
+        with smtplib.SMTP_SSL("smtp.gmail.com", 465, context=context, timeout=7) as server:
             server.login(SMTP_EMAIL, SMTP_PASSWORD)
             server.sendmail(SMTP_EMAIL, msg['To'], msg.as_string())
-            print(f"DEBUG: Email successfully sent to {msg['To']}")
+            print(f"DEBUG: Email successfully sent via Port 465")
+            return
     except Exception as e:
-        print(f"DEBUG: Port 465 failed, trying Port 587 as fallback: {e}")
-        # Fallback to 587
-        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=30)
+        print(f"DEBUG: Port 465 failed ({e}), trying Port 587...")
+        
+    # Fallback to 587 with short timeout
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587, timeout=7)
         server.starttls()
         server.login(SMTP_EMAIL, SMTP_PASSWORD)
         server.sendmail(SMTP_EMAIL, msg['To'], msg.as_string())
         server.quit()
+        print(f"DEBUG: Email sent via Port 587 fallback")
+    except Exception as e:
+        print(f"CRITICAL: All SMTP ports failed: {e}")
+        raise e
 
 def send_verification_email(to_email: str, otp: str, username: str):
     if not SMTP_EMAIL or not SMTP_PASSWORD:
