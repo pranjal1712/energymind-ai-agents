@@ -197,6 +197,7 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: S
 # =========================
 @app.post("/signup")
 def signup(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    print(f"DEBUG: Signup request received for email: {user.email}")
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
