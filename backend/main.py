@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Depends, status
+from fastapi import FastAPI, HTTPException, Depends, status, BackgroundTasks, Request
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 from dotenv import load_dotenv
@@ -196,7 +196,7 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: S
 # Auth Routes
 # =========================
 @app.post("/signup")
-def signup(user: UserCreate, db: Session = Depends(get_db)):
+def signup(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     db_user = db.query(User).filter(User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already registered")
@@ -219,7 +219,8 @@ def signup(user: UserCreate, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(new_user)
     
-    send_verification_email(new_user.email, otp, new_user.username)
+    # Send email in background
+    background_tasks.add_task(send_verification_email, new_user.email, otp, new_user.username)
     
     return {"message": "Please check your email for the 6-digit verification code."}
 
@@ -324,7 +325,7 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 @app.post("/forgot-password")
-def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db)):
+def forgot_password(request: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == request.email).first()
     # Always return success to prevent email enumeration attacks
     if user:
@@ -332,10 +333,8 @@ def forgot_password(request: ForgotPasswordRequest, db: Session = Depends(get_db
         user.reset_token = reset_token
         user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
         db.commit()
-        try:
-            send_reset_email(user.email, reset_token, user.username)
-        except Exception as e:
-            print(f"Reset email failed (non-critical): {e}")
+        # Send email in background
+        background_tasks.add_task(send_reset_email, user.email, reset_token, user.username)
     return {"message": "If this email exists, a reset link has been sent."}
 
 @app.post("/reset-password")
