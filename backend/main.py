@@ -164,7 +164,15 @@ async def research(req: ResearchRequest, user: Optional[User] = Depends(get_opti
 
         norm_q = normalize_query(req.query)
         cache = check_in_cache(norm_q, db)
-        if cache: return ResearchResponse(query=req.query, result=cache["result"], file_path="cache", suggestions=[])
+        if cache:
+            # Even for cache, we want to show suggestions
+            from .research_chain import invoke_chain_with_retry, suggestions_prompt
+            try:
+                result = await invoke_chain_with_retry(suggestions_prompt, {"report": cache["result"]})
+                suggestions = [q.strip() for q in result.strip().split('\n') if q.strip()][:3]
+            except:
+                suggestions = []
+            return ResearchResponse(query=req.query, result=cache["result"], file_path="cache", suggestions=suggestions)
 
         REQUEST_TIMESTAMPS.append(now)
         output = await run_full_research(req.query, req.thread_id)
