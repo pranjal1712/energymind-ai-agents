@@ -45,7 +45,7 @@ key_manager = APIKeyManager(GROQ_KEYS)
 def get_chat_model(key=None):
     """Creates an LLM instance with a specific key or a fresh one from manager."""
     return ChatGroq(
-        model="llama-3.1-70b-versatile", # Switched to a more stable model
+        model="llama-3.3-70b-versatile", # Updated to the latest supported model
         temperature=0.5,
         max_tokens=4096,
         groq_api_key=key if key else key_manager.get_key()
