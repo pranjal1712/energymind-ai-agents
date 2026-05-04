@@ -12,13 +12,58 @@ from pydantic import BaseModel
 # Load env variables
 load_dotenv()
 
-from .models import ResearchRequest, ResearchResponse
+# --- MODELS ---
+class ResearchRequest(BaseModel):
+    query: str
+    thread_id: Optional[str] = None
+
+class ResearchResponse(BaseModel):
+    query: str
+    result: str
+    file_path: Optional[str] = None
+    suggestions: List[str] = []
+
+class UserCreate(BaseModel):
+    username: str
+    email: str
+    password: str
+
+class GoogleAuthRequest(BaseModel):
+    token: str
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+    username: str
+
+class UserResponse(BaseModel):
+    username: str
+    email: str
+
+class ChatHistoryResponse(BaseModel):
+    id: int
+    query: str
+    response: str
+    timestamp: datetime
+
+class VerifyOtpRequest(BaseModel):
+    email: str
+    otp: str
+
+class ForgotPasswordRequest(BaseModel):
+    email: str
+
+class ResetPasswordRequest(BaseModel):
+    token: str
+    new_password: str
+
+# --- DB & SERVICES ---
 from .research_chain import run_full_research
 from .database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db
 from .auth import verify_password, get_password_hash, create_access_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_google_token
 from .email_service import send_verification_email, send_reset_email
 
-# Helper functions
+# --- HELPERS ---
 def slugify(text: str) -> str:
     text = text.lower().strip()
     text = re.sub(r'[^\w\s-]', '', text)
@@ -60,29 +105,6 @@ async def manual_cors_and_headers(request, call_next):
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-class UserCreate(BaseModel):
-    username: str
-    email: str
-    password: str
-
-class GoogleAuthRequest(BaseModel):
-    token: str
-
-class Token(BaseModel):
-    access_token: str
-    token_type: str
-    username: str
-
-class UserResponse(BaseModel):
-    username: str
-    email: str
-
-class ChatHistoryResponse(BaseModel):
-    id: int
-    query: str
-    response: str
-    timestamp: datetime
-
 async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)):
     if not token: raise HTTPException(status_code=401)
     payload = decode_access_token(token)
@@ -98,6 +120,7 @@ async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: S
         return db.query(User).filter(User.username == payload.get("sub")).first()
     except: return None
 
+# --- ROUTES ---
 @app.post("/signup")
 def signup(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
     if db.query(User).filter(User.email == user.email).first(): raise HTTPException(status_code=400, detail="Email exists")
@@ -129,14 +152,15 @@ async def research(req: ResearchRequest, user: Optional[User] = Depends(get_opti
         global REQUEST_TIMESTAMPS
         now = datetime.utcnow()
         REQUEST_TIMESTAMPS = [t for t in REQUEST_TIMESTAMPS if now - t < timedelta(seconds=60)]
-        if len(REQUEST_TIMESTAMPS) >= RPM_LIMIT: raise HTTPException(status_code=429, detail="Busy")
+        if len(REQUEST_TIMESTAMPS) >= RPM_LIMIT: raise HTTPException(status_code=429, detail="Server busy, try later")
 
         if user:
-            if user.limit_reached_at and now - user.limit_reached_at < timedelta(hours=24): raise HTTPException(status_code=429)
+            if user.limit_reached_at and now - user.limit_reached_at < timedelta(hours=24): 
+                raise HTTPException(status_code=429, detail="Daily limit reached")
             if user.chats_count >= 15:
                 user.limit_reached_at = now
                 db.commit()
-                raise HTTPException(status_code=429)
+                raise HTTPException(status_code=429, detail="Daily limit hit")
 
         norm_q = normalize_query(req.query)
         cache = check_in_cache(norm_q, db)
@@ -161,16 +185,46 @@ async def research(req: ResearchRequest, user: Optional[User] = Depends(get_opti
 async def history(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.query(ChatHistory).filter(ChatHistory.user_id == user.id).order_by(ChatHistory.timestamp.desc()).limit(10).all()
 
+@app.post("/forgot-password")
+def forgot(req: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.email == req.email).first()
+    if user:
+        token = secrets.token_urlsafe(32)
+        user.reset_token = token
+        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
+        db.commit()
+        background_tasks.add_task(send_reset_email, user.email, token, user.username)
+    return {"message": "Reset link sent if email exists"}
+
+@app.post("/reset-password")
+def reset(req: ResetPasswordRequest, db: Session = Depends(get_db)):
+    user = db.query(User).filter(User.reset_token == req.token).first()
+    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
+        raise HTTPException(status_code=400, detail="Invalid token")
+    user.hashed_password = get_password_hash(req.new_password)
+    user.reset_token = None
+    user.reset_token_expires = None
+    db.commit()
+    return {"message": "Password reset success"}
+
 def check_in_cache(query: str, db: Session):
     slug = slugify(normalize_query(query))
     entry = db.query(KnowledgeBase).filter(KnowledgeBase.slug == slug).first()
     return {"result": entry.content} if entry else None
 
 def save_to_knowledge_base(query: str, content: str, db: Session):
-    slug = slugify(normalize_query(query))
-    if not db.query(KnowledgeBase).filter(KnowledgeBase.slug == slug).first():
-        db.add(KnowledgeBase(query=query, slug=slug, content=content))
-        db.commit()
+    try:
+        norm_q = normalize_query(query)
+        slug = slugify(norm_q)
+        existing = db.query(KnowledgeBase).filter((KnowledgeBase.slug == slug) | (KnowledgeBase.query == query)).first()
+        if not existing:
+            db.add(KnowledgeBase(query=query, slug=slug, content=content))
+            db.commit()
+        else:
+            existing.content = content
+            existing.slug = slug
+            db.commit()
+    except: db.rollback()
 
 def save_result_to_file(query: str, result: str) -> str:
     path = os.path.join(os.path.dirname(__file__), "knowledge_base", f"{slugify(query)}.txt")
