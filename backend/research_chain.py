@@ -42,45 +42,37 @@ class APIKeyManager:
 
 key_manager = APIKeyManager(GROQ_KEYS)
 
+def get_chat_model(key=None):
+    """Creates an LLM instance with a specific key or a fresh one from manager."""
+    return ChatGroq(
+        model="llama-3.1-70b-versatile", # Switched to a more stable model
+        temperature=0.5,
+        max_tokens=4096,
+        groq_api_key=key if key else key_manager.get_key()
+    )
+
 @retry(
-    stop=stop_after_attempt(3),
+    stop=stop_after_attempt(5), # More attempts for multiple keys
     wait=wait_exponential(multiplier=1, min=2, max=10),
     retry=retry_if_exception_type((RateLimitError, InternalServerError, Exception))
 )
-async def invoke_llm_with_retry(chain_or_llm, inputs):
+async def invoke_chain_with_retry(prompt, inputs):
     """
-    Invokes LLM with automatic key rotation and exponential backoff.
+    Builds and invokes a chain with a fresh LLM key on each retry.
     """
     async with AI_SEMAPHORE:
         current_key = key_manager.get_key()
-        # Create a new LLM instance with the current key for this call
-        # (This ensures each attempt can use a different key if needed)
-        temp_llm = ChatGroq(
-            model="llama-3.3-70b-versatile",
-            temperature=0.5,
-            max_tokens=4096,
-            groq_api_key=current_key
-        )
+        print(f"DEBUG: Using Groq Key ending in ...{current_key[-6:]}")
         
-        # Determine if it's a chain or just the LLM
-        if hasattr(chain_or_llm, "first"): # It's a chain
-            # We need to rebuild the chain with the new LLM
-            # Since chains are immutable, we rely on the invoke calling the LLM
-            # For simplicity in this graph, I'll pass the LLM into the nodes
-            pass 
+        # Build the chain fresh with the new key
+        llm = get_chat_model(current_key)
+        chain = prompt | llm | StrOutputParser()
         
-        return await chain_or_llm.ainvoke(inputs)
-
-# Update chains to be 'templates' or rebuild them in nodes
-# I will refactor the nodes to use a helper that handles the LLM creation.
-
-def get_chat_model():
-    return ChatGroq(
-        model="llama-3.3-70b-versatile",
-        temperature=0.5,
-        max_tokens=4096,
-        groq_api_key=key_manager.get_key()
-    )
+        try:
+            return await chain.ainvoke(inputs)
+        except Exception as e:
+            print(f"DEBUG: Groq call failed with key ...{current_key[-6:]}: {str(e)}")
+            raise e
 
 # Placeholder for the original llm variable to avoid breaking imports
 llm = get_chat_model()
@@ -129,8 +121,7 @@ async def gatekeeper_node(state: AgentState):
     query = state["query"]
     
     try:
-        chain = gatekeeper_prompt | get_chat_model() | StrOutputParser()
-        result = await invoke_llm_with_retry(chain, {"query": query})
+        result = await invoke_chain_with_retry(gatekeeper_prompt, {"query": query})
         result = result.strip().upper()
     except Exception as e:
         print(f"Gatekeeper error: {e}")
@@ -192,8 +183,7 @@ async def research_node(state: AgentState):
     except:
          results = str(search_tool.invoke(query))
     
-    chain = research_prompt | get_chat_model() | StrOutputParser()
-    summary = await invoke_llm_with_retry(chain, {
+    summary = await invoke_chain_with_retry(research_prompt, {
         "query": query,
         "search_results": results,
         "history": history_text
@@ -232,8 +222,7 @@ analysis_prompt = PromptTemplate.from_template(
 async def analysis_node(state: AgentState):
     print("--- 🔄 Node: Analyst ---")
     research_summary = state["research_check"]
-    chain = analysis_prompt | get_chat_model() | StrOutputParser()
-    analysis = await invoke_llm_with_retry(chain, {"research": research_summary})
+    analysis = await invoke_chain_with_retry(analysis_prompt, {"research": research_summary})
     return {"analysis": analysis}
 
 # =========================
@@ -278,8 +267,7 @@ async def writing_node(state: AgentState):
     if current_rev > 0:
         print(f"--- 📝 Revision #{current_rev} (Feedback: {feedback}) ---")
     
-    chain = writing_prompt | get_chat_model() | StrOutputParser()
-    report = await invoke_llm_with_retry(chain, {
+    report = await invoke_chain_with_retry(writing_prompt, {
         "analysis": analysis_text,
         "feedback": feedback
     })
@@ -316,8 +304,7 @@ async def reviewer_node(state: AgentState):
     print("--- 🔄 Node: Reviewer ---")
     report_text = state["report"]
     try:
-        chain = reviewer_prompt | get_chat_model() | StrOutputParser()
-        result = await invoke_llm_with_retry(chain, {"report": report_text})
+        result = await invoke_chain_with_retry(reviewer_prompt, {"report": report_text})
     except Exception as e:
         print(f"--- ⚠️ Reviewer Error: {e}. Skipping review. ---")
         return {"reviewer_feedback": "PASS"} 
@@ -351,8 +338,7 @@ async def suggestions_node(state: AgentState):
     query = state["query"]
     
     # Generate suggestions
-    chain = suggestions_prompt | get_chat_model() | StrOutputParser()
-    result = await invoke_llm_with_retry(chain, {"report": report_text})
+    result = await invoke_chain_with_retry(suggestions_prompt, {"report": report_text})
     questions = [q.strip() for q in result.strip().split('\n') if q.strip()]
     
     # Update History

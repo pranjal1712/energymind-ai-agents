@@ -316,7 +316,20 @@ def verify_otp(request: VerifyOtpRequest, db: Session = Depends(get_db)):
     user.is_verified = 1
     user.verification_token = None
     db.commit()
-    return {"message": "Email verified successfully. You can now log in."}
+
+    # Generate token for auto-login after verification
+    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    access_token = create_access_token(
+        data={"sub": user.username}, expires_delta=access_token_expires
+    )
+    
+    return {
+        "access_token": access_token, 
+        "token_type": "bearer",
+        "username": user.username,
+        "email": user.email,
+        "message": "Email verified successfully"
+    }
 
 class ForgotPasswordRequest(BaseModel):
     email: str

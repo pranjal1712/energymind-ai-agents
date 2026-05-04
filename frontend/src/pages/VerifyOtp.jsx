@@ -5,7 +5,7 @@ import { useMousePosition } from '../hooks/useMousePosition';
 import api from '../services/api';
 import logo from '../assets/logo-em.png';
 
-function VerifyOtp() {
+function VerifyOtp({ onLogin }) {
   const navigate = useNavigate();
   const location = useLocation();
   const pageRef = useRef(null);
@@ -73,11 +73,20 @@ function VerifyOtp() {
     setLoading(true);
 
     try {
-      await api.verifyOtp(email, otpString);
+      const response = await api.verifyOtp(email, otpString);
+      
+      // Auto-login: save token and user info
+      api.setToken(response.access_token);
+      localStorage.setItem('user', JSON.stringify({ 
+        name: response.username, 
+        email: response.email 
+      }));
+
       setSuccess(true);
       setTimeout(() => {
-        navigate('/login');
-      }, 2000);
+        onLogin(); // Trigger isLoggedIn state in App.jsx
+        navigate('/chatbot');
+      }, 1500);
     } catch (err) {
       setError(err.message || 'Verification failed. Please check the code.');
     } finally {
@@ -109,7 +118,7 @@ function VerifyOtp() {
         {success && (
           <div style={{ backgroundColor: 'rgba(16, 185, 129, 0.1)', color: '#10b981', padding: '1rem', borderRadius: '8px', marginBottom: '1.5rem', textAlign: 'center', border: '1px solid rgba(16, 185, 129, 0.2)' }}>
             <ShieldCheck size={24} style={{ margin: '0 auto 0.5rem' }} />
-            Verification successful! Redirecting to login...
+            Verification successful! Opening Chatbot...
           </div>
         )}
 
