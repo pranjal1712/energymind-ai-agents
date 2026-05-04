@@ -9,7 +9,7 @@ from datetime import datetime, timedelta
 from typing import List, Optional
 from pydantic import BaseModel
 
-# Load env variables at the very beginning
+# Load env variables
 load_dotenv()
 
 from .models import ResearchRequest, ResearchResponse
@@ -20,7 +20,6 @@ from .email_service import send_verification_email, send_reset_email
 
 # Helper functions
 def slugify(text: str) -> str:
-    """Helper to create URL-safe slugs from text."""
     text = text.lower().strip()
     text = re.sub(r'[^\w\s-]', '', text)
     text = re.sub(r'[\s_-]+', '-', text)
@@ -28,64 +27,39 @@ def slugify(text: str) -> str:
     return text
 
 def normalize_query(query: str) -> str:
-    """Normalize query for fuzzy caching by sorting words."""
     query = query.lower().strip()
     query = re.sub(r'[^\w\s]', '', query)
     words = sorted(query.split())
     return " ".join(words)
 
-# Global RPM tracking
 REQUEST_TIMESTAMPS = []
-RPM_LIMIT = 25 # Max 25 research requests per minute globally
+RPM_LIMIT = 25 
 
-# App Initialization
 app = FastAPI(title="Autonomous Energy Researcher API")
 
 @app.on_event("startup")
 async def startup_event():
-    print("Initializing Database...")
-    try:
-        init_db()
-        print("Database Initialized Successfully")
-    except Exception as e:
-        print(f"Database Initialization Failed: {e}")
+    init_db()
 
 @app.middleware("http")
 async def manual_cors_and_headers(request, call_next):
     origin = request.headers.get("Origin")
     method = request.method
-    
     if method == "OPTIONS":
         from fastapi.responses import Response
-        resp_origin = origin or "*"
         response = Response(status_code=204)
-        response.headers["Access-Control-Allow-Origin"] = resp_origin
-        response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-        response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin, DNT, Keep-Alive, User-Agent"
+        response.headers["Access-Control-Allow-Origin"] = origin or "*"
+        response.headers["Access-Control-Allow-Methods"] = "*"
+        response.headers["Access-Control-Allow-Headers"] = "*"
         response.headers["Access-Control-Allow-Credentials"] = "true"
-        response.headers["Access-Control-Max-Age"] = "86400"
         return response
-
-    try:
-        response = await call_next(request)
-    except Exception as e:
-        from fastapi.responses import JSONResponse
-        return JSONResponse(
-            status_code=500,
-            content={"detail": str(e)},
-            headers={"Access-Control-Allow-Origin": origin or "*", "Access-Control-Allow-Credentials": "true"}
-        )
-    
+    response = await call_next(request)
     response.headers["Access-Control-Allow-Origin"] = origin or "*"
     response.headers["Access-Control-Allow-Credentials"] = "true"
-    response.headers["Access-Control-Allow-Methods"] = "GET, POST, PUT, DELETE, OPTIONS, PATCH"
-    response.headers["Access-Control-Allow-Headers"] = "Authorization, Content-Type, Accept, X-Requested-With, Origin, DNT, Keep-Alive, User-Agent"
     return response
 
-# Auth dependency
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token", auto_error=False)
 
-# Pydantic Models
 class UserCreate(BaseModel):
     username: str
     email: str
@@ -109,116 +83,45 @@ class ChatHistoryResponse(BaseModel):
     response: str
     timestamp: datetime
 
-# Auth helpers
 async def get_current_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    if not token:
-        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not token: raise HTTPException(status_code=401)
     payload = decode_access_token(token)
-    if not payload:
-        raise HTTPException(status_code=401, detail="Invalid token")
-    username = payload.get("sub")
-    user = db.query(User).filter(User.username == username).first()
-    if not user:
-        raise HTTPException(status_code=401, detail="User not found")
+    if not payload: raise HTTPException(status_code=401)
+    user = db.query(User).filter(User.username == payload.get("sub")).first()
+    if not user: raise HTTPException(status_code=401)
     return user
 
 async def get_optional_user(token: Optional[str] = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    if not token or token in ["undefined", "null"]:
-        return None
+    if not token or token in ["undefined", "null"]: return None
     try:
         payload = decode_access_token(token)
-        username = payload.get("sub")
-        return db.query(User).filter(User.username == username).first()
-    except:
-        return None
+        return db.query(User).filter(User.username == payload.get("sub")).first()
+    except: return None
 
-# Routes
 @app.post("/signup")
 def signup(user: UserCreate, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    if db.query(User).filter(User.username == user.username).first():
-        raise HTTPException(status_code=400, detail="Username taken")
-    if db.query(User).filter(User.email == user.email).first():
-        raise HTTPException(status_code=400, detail="Email registered")
-    
+    if db.query(User).filter(User.email == user.email).first(): raise HTTPException(status_code=400, detail="Email exists")
     otp = "".join([str(secrets.randbelow(10)) for _ in range(6)])
     new_user = User(username=user.username, email=user.email, hashed_password=get_password_hash(user.password), verification_token=otp)
     db.add(new_user)
     db.commit()
     background_tasks.add_task(send_verification_email, user.email, otp, user.username)
-    return {"message": "OTP sent to email"}
+    return {"message": "OTP sent"}
 
 @app.post("/token", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     user = db.query(User).filter((User.username == form_data.username) | (User.email == form_data.username)).first()
-    if not user or not verify_password(form_data.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Invalid credentials")
-    if not user.is_verified:
-        raise HTTPException(status_code=401, detail="Verify email first")
-    
-    token = create_access_token(data={"sub": user.username})
-    return {"access_token": token, "token_type": "bearer", "username": user.username}
-
-@app.post("/auth/google", response_model=Token)
-async def google_auth(request: GoogleAuthRequest, db: Session = Depends(get_db)):
-    info = verify_google_token(request.token)
-    if not info: raise HTTPException(status_code=400, detail="Invalid token")
-    email = info.get("email")
-    user = db.query(User).filter(User.email == email).first()
-    if not user:
-        user = User(username=email.split('@')[0], email=email, hashed_password="GOOGLE_AUTH", is_verified=1)
-        db.add(user)
-        db.commit()
-        db.refresh(user)
-    token = create_access_token(data={"sub": user.username})
-    return {"access_token": token, "token_type": "bearer", "username": user.username}
-
-@app.get("/me", response_model=UserResponse)
-async def me(user: User = Depends(get_current_user)):
-    return {"username": user.username, "email": user.email}
-
-class VerifyOtpRequest(BaseModel):
-    email: str
-    otp: str
+    if not user or not verify_password(form_data.password, user.hashed_password): raise HTTPException(status_code=401)
+    return {"access_token": create_access_token(data={"sub": user.username}), "token_type": "bearer", "username": user.username}
 
 @app.post("/verify-otp")
 def verify_otp(req: VerifyOtpRequest, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == req.email).first()
-    if not user or user.verification_token != req.otp:
-        raise HTTPException(status_code=400, detail="Invalid OTP")
+    if not user or user.verification_token != req.otp: raise HTTPException(status_code=400)
     user.is_verified = 1
     user.verification_token = None
     db.commit()
-    token = create_access_token(data={"sub": user.username})
-    return {"access_token": token, "token_type": "bearer", "username": user.username, "email": user.email}
-
-class ForgotPasswordRequest(BaseModel):
-    email: str
-
-class ResetPasswordRequest(BaseModel):
-    token: str
-    new_password: str
-
-@app.post("/forgot-password")
-def forgot(req: ForgotPasswordRequest, background_tasks: BackgroundTasks, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.email == req.email).first()
-    if user:
-        token = secrets.token_urlsafe(32)
-        user.reset_token = token
-        user.reset_token_expires = datetime.utcnow() + timedelta(hours=1)
-        db.commit()
-        background_tasks.add_task(send_reset_email, user.email, token, user.username)
-    return {"message": "Reset link sent if email exists"}
-
-@app.post("/reset-password")
-def reset(req: ResetPasswordRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.reset_token == req.token).first()
-    if not user or not user.reset_token_expires or user.reset_token_expires < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Invalid token")
-    user.hashed_password = get_password_hash(req.new_password)
-    user.reset_token = None
-    user.reset_token_expires = None
-    db.commit()
-    return {"message": "Password reset success"}
+    return {"access_token": create_access_token(data={"sub": user.username}), "token_type": "bearer", "username": user.username}
 
 @app.post("/research", response_model=ResearchResponse)
 async def research(req: ResearchRequest, user: Optional[User] = Depends(get_optional_user), db: Session = Depends(get_db)):
@@ -226,23 +129,20 @@ async def research(req: ResearchRequest, user: Optional[User] = Depends(get_opti
         global REQUEST_TIMESTAMPS
         now = datetime.utcnow()
         REQUEST_TIMESTAMPS = [t for t in REQUEST_TIMESTAMPS if now - t < timedelta(seconds=60)]
-        if len(REQUEST_TIMESTAMPS) >= RPM_LIMIT:
-            raise HTTPException(status_code=429, detail="Server busy, wait 30s")
-        REQUEST_TIMESTAMPS.append(now)
+        if len(REQUEST_TIMESTAMPS) >= RPM_LIMIT: raise HTTPException(status_code=429, detail="Busy")
 
         if user:
-            if user.limit_reached_at and now - user.limit_reached_at < timedelta(hours=24):
-                raise HTTPException(status_code=429, detail="Daily limit reached")
+            if user.limit_reached_at and now - user.limit_reached_at < timedelta(hours=24): raise HTTPException(status_code=429)
             if user.chats_count >= 15:
                 user.limit_reached_at = now
                 db.commit()
-                raise HTTPException(status_code=429, detail="Daily limit hit")
+                raise HTTPException(status_code=429)
 
         norm_q = normalize_query(req.query)
         cache = check_in_cache(norm_q, db)
-        if cache:
-            return ResearchResponse(query=req.query, result=cache["result"], file_path="cache", suggestions=[])
+        if cache: return ResearchResponse(query=req.query, result=cache["result"], file_path="cache", suggestions=[])
 
+        REQUEST_TIMESTAMPS.append(now)
         output = await run_full_research(req.query, req.thread_id)
         res_text = output["report"]
         save_to_knowledge_base(req.query, res_text, db)
@@ -259,16 +159,7 @@ async def research(req: ResearchRequest, user: Optional[User] = Depends(get_opti
 
 @app.get("/history", response_model=List[ChatHistoryResponse])
 async def history(user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    chats = db.query(ChatHistory).filter(ChatHistory.user_id == user.id).order_by(ChatHistory.timestamp.desc()).limit(10).all()
-    return chats
-
-@app.delete("/history/{id}")
-async def delete_history(id: int, user: User = Depends(get_current_user), db: Session = Depends(get_db)):
-    chat = db.query(ChatHistory).filter(ChatHistory.id == id, ChatHistory.user_id == user.id).first()
-    if chat:
-        db.delete(chat)
-        db.commit()
-    return {"message": "Deleted"}
+    return db.query(ChatHistory).filter(ChatHistory.user_id == user.id).order_by(ChatHistory.timestamp.desc()).limit(10).all()
 
 def check_in_cache(query: str, db: Session):
     slug = slugify(normalize_query(query))
