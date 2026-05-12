@@ -81,6 +81,7 @@ const Sidebar = ({
               {historyItems.map((item, idx) => (
                 <div
                   key={item.id || idx}
+                  data-id={item.id}
                   className="history-item"
                   onClick={() => onSelectHistory(item)}
                   style={{ position: 'relative' }}
@@ -93,17 +94,6 @@ const Sidebar = ({
                   >
                     <MoreVertical size={14} />
                   </button>
-
-                  {activeMenuId === item.id && (
-                    <div className="history-dropdown glass">
-                      <button className="dropdown-item" onClick={(e) => onShareChat(e, item)}>
-                        <Share2 size={14} /> Share
-                      </button>
-                      <button className="dropdown-item delete-item" onClick={(e) => onDeleteChat(e, item.id)}>
-                        <Trash2 size={14} /> Delete
-                      </button>
-                    </div>
-                  )}
                 </div>
               ))}
             </div>
@@ -145,6 +135,32 @@ const Sidebar = ({
           )}
         </div>
       </div>
+
+      {/* Floating Dropdown (Outside Scrollable Area to prevent clipping) */}
+      {activeMenuId && (
+        <div 
+          className="history-dropdown glass"
+          style={{ 
+            position: 'fixed',
+            left: window.innerWidth <= 768 ? 'auto' : '230px',
+            right: window.innerWidth <= 768 ? '10px' : 'auto',
+            top: document.querySelector(`[data-id="${activeMenuId}"]`)?.getBoundingClientRect().top || '50%',
+            transform: 'translateY(-10px)',
+            zIndex: 9999
+          }}
+        >
+          {historyItems.find(i => i.id === activeMenuId) && (
+            <>
+              <button className="dropdown-item" onClick={(e) => onShareChat(e, historyItems.find(i => i.id === activeMenuId))}>
+                <Share2 size={14} /> Share
+              </button>
+              <button className="dropdown-item delete-item" onClick={(e) => onDeleteChat(e, activeMenuId)}>
+                <Trash2 size={14} /> Delete
+              </button>
+            </>
+          )}
+        </div>
+      )}
     </aside>
   );
 };

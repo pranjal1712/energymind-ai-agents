@@ -57,7 +57,7 @@
   left: 0;
   top: 0;
   transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  overflow: hidden;
+  overflow: visible;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(20px);
 }
@@ -101,6 +101,7 @@
   flex: 1;
   padding: 0.75rem;
   overflow-y: auto;
+  overflow-x: visible;
   display: flex;
   flex-direction: column;
 }
@@ -204,7 +205,8 @@
 }
 
 .history-list-container.open {
-  max-height: 800px;
+  max-height: 2000px;
+  overflow: visible;
 }
 
 .history-list {
@@ -931,5 +933,61 @@
 
 @keyframes profileSlideUp { from { transform: translateY(10px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
 @keyframes neonGlow { 0% { background-position: 0% 50%; } 100% { background-position: 200% 50%; } }
+
+/* History Dropdown Styles (ChatGPT Style) */
+.history-dropdown {
+  background: #202123;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+  padding: 8px;
+  z-index: 5000;
+  min-width: 180px;
+  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.7);
+  display: flex;
+  flex-direction: column;
+  animation: dropdownPop 0.15s ease-out;
+}
+
+@keyframes dropdownPop {
+  from { opacity: 0; transform: scale(0.95); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  color: #ececf1;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  font-weight: 400;
+  cursor: pointer;
+  transition: background 0.2s;
+  width: 100%;
+  text-align: left;
+}
+
+.dropdown-item:hover {
+  background: #2b2c2f;
+}
+
+.dropdown-item.delete-item {
+  color: #ff4d4d;
+  margin-top: 4px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 0 0 8px 8px;
+  padding-top: 16px;
+}
+
+.dropdown-item.delete-item:hover {
+  background: rgba(255, 77, 77, 0.1);
+}
+
+.dropdown-item svg {
+  opacity: 0.8;
+}
 
 .bottom-spacing { height: 120px; }

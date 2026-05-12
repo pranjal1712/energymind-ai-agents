@@ -28,3 +28,11 @@ Thumbs.db
 
 # Kubernetes Secrets (contain API keys - never commit!)
 k8s/secrets.yaml
+
+# Google Drive Service Account Credentials
+credentials.json
+
+# Local SQLite Backup Files
+users_backup.db
+
+token.json

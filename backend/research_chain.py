@@ -430,5 +430,6 @@ async def run_full_research(query: str, thread_id: str = None) -> dict:
     
     return {
         "report": result.get("report", "No report generated."),
-        "suggestions": result.get("suggestions", [])
+        "suggestions": result.get("suggestions", []),
+        "is_relevant": result.get("is_relevant", True)
     }

@@ -32,19 +32,37 @@ function ResetPassword() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!canReset) return;
-    if (!token) {
-      setError('Invalid or missing reset token. Please request a new link.');
+    console.log("DEBUG: Reset form submitted");
+    
+    if (!canReset) {
+      setError("Please make sure passwords match and meet all requirements.");
       return;
     }
+
+    if (!token) {
+      console.error("DEBUG: Token is missing from the URL");
+      setError('Invalid or missing reset token. Please request a new link from the login page.');
+      return;
+    }
+
     setLoading(true);
     setError('');
+    
     try {
+      console.log("DEBUG: Sending reset request to backend...");
       await api.resetPassword(token, password);
+      console.log("DEBUG: Reset successful!");
       setIsReset(true);
       setTimeout(() => navigate('/login'), 3000);
     } catch (err) {
-      setError(err.message || 'Reset failed. The link may have expired.');
+      console.error('DEBUG: Reset error caught:', err);
+      if (err.message.includes('expired')) {
+        setError('Your reset link has expired. Please request a new one.');
+      } else if (err.message.includes('token')) {
+        setError('Invalid reset link. Please make sure you used the complete link from your email.');
+      } else {
+        setError(err.message || 'Reset failed. Please try again later.');
+      }
     } finally {
       setLoading(false);
     }
@@ -151,10 +169,10 @@ function ResetPassword() {
           <button 
             type="submit" 
             className="btn-primary w-full" 
-            disabled={!canReset}
-            style={{ opacity: canReset ? 1 : 0.6 }}
+            disabled={!canReset || loading}
+            style={{ opacity: (canReset && !loading) ? 1 : 0.6 }}
           >
-            Reset Password
+            {loading ? 'Resetting...' : 'Reset Password'}
           </button>
         </form>
 

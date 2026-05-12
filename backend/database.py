@@ -32,6 +32,11 @@ engine = create_engine(
 )
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
+# --- LOCAL BACKUP DB ---
+BACKUP_URL = "sqlite:///./users_backup.db"
+backup_engine = create_engine(BACKUP_URL, connect_args={"check_same_thread": False})
+BackupSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=backup_engine)
+
 Base = declarative_base()
 
 class User(Base):
@@ -47,6 +52,8 @@ class User(Base):
     verification_token = Column(String, nullable=True)
     reset_token = Column(String, nullable=True)
     reset_token_expires = Column(DateTime, nullable=True)
+    failed_login_attempts = Column(Integer, default=0)
+    lockout_until = Column(DateTime, nullable=True)
     
     chats = relationship("ChatHistory", back_populates="owner")
 
@@ -72,6 +79,7 @@ class KnowledgeBase(Base):
 
 def init_db():
     Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=backup_engine)
 
     # Safely add new columns using IF NOT EXISTS (works on PostgreSQL & SQLite 3.35+)
     migrations = [
@@ -103,7 +111,31 @@ def init_db():
 
 def get_db():
     db = SessionLocal()
+    db_to_yield = db
     try:
-        yield db
-    finally:
+        # Check connection. If Neon DB is down, this will throw an exception.
+        db.execute(text("SELECT 1"))
+    except Exception as e:
+        print(f"WARNING: Primary DB failed ({e}). Falling back to Local Backup DB!")
         db.close()
+        db_to_yield = BackupSessionLocal()
+        
+    try:
+        yield db_to_yield
+    finally:
+        try:
+            db_to_yield.close()
+        except:
+            pass
+
+def sync_to_local(obj):
+    """Sync a single SQLAlchemy object to the local backup database in real-time."""
+    backup_db = BackupSessionLocal()
+    try:
+        backup_db.merge(obj)
+        backup_db.commit()
+    except Exception as e:
+        backup_db.rollback()
+        print(f"ERROR: Failed to sync object to local DB: {e}")
+    finally:
+        backup_db.close()

@@ -3,20 +3,21 @@ import Cookies from 'js-cookie';
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 const api = {
-  getToken: () => Cookies.get('access_token') || localStorage.getItem('access_token'),
-  setToken: (token) => {
-    localStorage.setItem('access_token', token);
+  getToken: () => localStorage.getItem('access_token') || Cookies.get('access_token'),
+  setToken: (accessToken, refreshToken) => {
+    localStorage.setItem('access_token', accessToken);
     const consent = localStorage.getItem('cookie_consent');
-    if (consent === 'accepted') {
-      Cookies.set('access_token', token, { expires: 7, secure: true, sameSite: 'strict' });
+    if (consent === 'accepted' && refreshToken) {
+      Cookies.set('refresh_token', refreshToken, { expires: 60, secure: true, sameSite: 'strict' });
     }
   },
   clearToken: () => {
     localStorage.removeItem('access_token');
-    Cookies.remove('access_token');
+    Cookies.remove('access_token'); // cleanup old logic
+    Cookies.remove('refresh_token');
   },
 
-  async request(endpoint, options = {}) {
+  async request(endpoint, options = {}, isRetry = false) {
     const token = this.getToken();
     const headers = {
       'Content-Type': 'application/json',
@@ -33,7 +34,27 @@ const api = {
     });
 
     if (!response.ok) {
-      if (response.status === 401) {
+      if (response.status === 401 && !isRetry) {
+        const refreshToken = Cookies.get('refresh_token');
+        if (refreshToken) {
+          try {
+            const refreshRes = await fetch(`${BASE_URL}/refresh`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ refresh_token: refreshToken })
+            });
+            if (refreshRes.ok) {
+              const data = await refreshRes.json();
+              this.setToken(data.access_token, data.refresh_token);
+              // Retry the original request
+              return this.request(endpoint, options, true);
+            }
+          } catch (err) {
+            console.error("Token refresh failed", err);
+          }
+        }
+        
+        // If no refresh token or refresh failed, force logout
         this.clearToken();
         localStorage.removeItem('user');
         window.location.href = '/login';
@@ -75,7 +96,7 @@ const api = {
     }
 
     const data = await response.json();
-    this.setToken(data.access_token);
+    this.setToken(data.access_token, data.refresh_token);
     return data;
   },
 
@@ -91,7 +112,7 @@ const api = {
       method: 'POST',
       body: JSON.stringify({ token }),
     });
-    this.setToken(data.access_token);
+    this.setToken(data.access_token, data.refresh_token);
     return data;
   },
 
@@ -120,6 +141,10 @@ const api = {
       method: 'POST',
       body: JSON.stringify({ token, new_password }),
     });
+  },
+
+  async getSharedReport(id) {
+    return this.request(`/share/${id}`);
   },
 
   async getMe() {

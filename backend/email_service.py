@@ -57,13 +57,16 @@ def send_verification_email(to_email: str, otp: str, username: str):
         print(f"CRITICAL ERROR: Brevo failed to send email: {str(e)}")
         return False
 
-def send_reset_email(to_email: str, token: str, username: str):
+def send_reset_email(to_email: str, token: str, username: str, frontend_url: str = None):
     if not BREVO_API_KEY:
         print("CRITICAL: BREVO_API_KEY not found in environment variables!")
         return False
 
-    FRONTEND_URL = os.getenv("FRONTEND_URL", "https://energymind-research-ai.vercel.app")
-    reset_link = f"{FRONTEND_URL}/reset-password?token={token}"
+    # Dynamic URL fallback logic
+    default_frontend = os.getenv("FRONTEND_URL", "https://energymind-research-ai.vercel.app")
+    base_url = (frontend_url or default_frontend).rstrip('/')
+    
+    reset_link = f"{base_url}/reset-password?token={token}"
 
     payload = {
         "sender": {"name": SENDER_NAME, "email": SENDER_EMAIL},

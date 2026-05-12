@@ -7,6 +7,7 @@ import ResetPassword from './pages/ResetPassword';
 import VerifyEmail from './pages/VerifyEmail';
 import VerifyOtp from './pages/VerifyOtp';
 import Chatbot from './pages/Chatbot';
+import SharedReport from './pages/SharedReport';
 import api from './services/api';
 import './index.css';
 
@@ -41,6 +42,7 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
           <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/verify-otp" element={<VerifyOtp onLogin={() => setIsLoggedIn(true)} />} />
+          <Route path="/share/:id" element={<SharedReport />} />
 
 
           <Route

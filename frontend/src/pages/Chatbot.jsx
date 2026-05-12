@@ -134,10 +134,13 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
       if (activeMsgMenuId && !event.target.closest('.msg-options-container')) {
         setActiveMsgMenuId(null);
       }
+      if (activeMenuId && !event.target.closest('.history-item')) {
+        setActiveMenuId(null);
+      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, [activeMsgMenuId]);
+  }, [activeMsgMenuId, activeMenuId]);
 
   // Handlers
   const getInitials = (name) => {
@@ -157,7 +160,7 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
     if (!item.query || !item.response) return;
     setMessages([
       { id: Date.now(), text: item.query, sender: 'user' },
-      { id: Date.now() + 1, text: item.response, sender: 'ai' }
+      { id: Date.now() + 1, text: item.response, sender: 'ai', db_id: item.id }
     ]);
     if (window.innerWidth <= 768) setIsSidebarOpen(false);
   };
@@ -186,12 +189,12 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
 
     try {
       const response = await api.runResearch(currentInput);
-      const aiMsg = { id: Date.now() + 1, text: response.result, sender: 'ai' };
+      const aiMsg = { id: Date.now() + 1, text: response.result, sender: 'ai', db_id: response.id };
       setMessages((prev) => [...prev, aiMsg]);
-      if (isFirstMessage) {
-        const updatedHistory = await api.getHistory();
-        setHistoryItems(updatedHistory);
-      }
+      
+      // Always update history after a successful research to keep sidebar in sync
+      const updatedHistory = await api.getHistory();
+      if (updatedHistory) setHistoryItems(updatedHistory);
     } catch (err) {
       const msg = err.message || JSON.stringify(err);
       const isQuotaError = msg.toLowerCase().includes("limit") || msg.includes("15 chats");
@@ -201,6 +204,17 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleShareLink = (dbId) => {
+    if (!dbId) {
+      alert("Only successfully saved research reports can be shared.");
+      return;
+    }
+    const shareUrl = `${window.location.origin}/share/${dbId}`;
+    navigator.clipboard.writeText(shareUrl);
+    alert("Public share link copied to clipboard!");
+    setActiveMsgMenuId(null);
   };
 
   return (
@@ -280,6 +294,7 @@ function Chatbot({ isLoggedIn, onLogin, onLogout }) {
           }}
           onExportPDF={(text, query) => handleExportPDF(text, query, () => setActiveMsgMenuId(null))}
           onExportDocs={(text, query) => handleExportDocs(text, query, () => setActiveMsgMenuId(null))}
+          onShareLink={handleShareLink}
         />
 
         {messages.length === 0 && (

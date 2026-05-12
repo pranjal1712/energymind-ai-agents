@@ -11,6 +11,8 @@
   },
   "dependencies": {
     "@react-oauth/google": "^0.13.4",
+    "@sentry/browser": "^10.52.0",
+    "@sentry/react": "^10.52.0",
     "docx": "^9.6.1",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",

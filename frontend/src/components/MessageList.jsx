@@ -1,7 +1,7 @@
 import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { MoreHorizontal, Copy, FileText, Download, Clock } from 'lucide-react';
+import { MoreHorizontal, Copy, FileText, Download, Clock, Link as LinkIcon } from 'lucide-react';
 
 // Error Boundary for catching message rendering crashes
 class MessageErrorBoundary extends React.Component {
@@ -27,7 +27,8 @@ const MessageList = ({
   onToggleMsgMenu,
   onCopy,
   onExportPDF,
-  onExportDocs
+  onExportDocs,
+  onShareLink
 }) => {
   if (messages.length === 0) return null;
 
@@ -56,6 +57,9 @@ const MessageList = ({
                       </button>
                       <button className="msg-dropdown-item" onClick={() => onExportDocs(msg.text, "Research Report")}>
                         <Download size={14} /> <span>Export DOCS</span>
+                      </button>
+                      <button className="msg-dropdown-item" onClick={() => onShareLink(msg.db_id)}>
+                        <LinkIcon size={14} /> <span>Share Link</span>
                       </button>
                     </div>
                   )}

@@ -76,7 +76,7 @@ function VerifyOtp({ onLogin }) {
       const response = await api.verifyOtp(email, otpString);
       
       // Auto-login: save token and user info
-      api.setToken(response.access_token);
+      api.setToken(response.access_token, response.refresh_token);
       localStorage.setItem('user', JSON.stringify({ 
         name: response.username, 
         email: response.email 
