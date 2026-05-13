@@ -105,7 +105,7 @@ app = FastAPI(title="Autonomous Energy Researcher API")
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://energymind-research-ai.vercel.app", "http://localhost:5173"],
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -114,9 +114,14 @@ app.add_middleware(
 @app.on_event("startup")
 async def startup_event():
     init_db()
-    from .neon_to_sqlite import rebuild_sqlite_from_neon
-    # Rebuild local SQLite from Neon DB (only runs on Render)
-    rebuild_sqlite_from_neon()
+    
+    # Run rebuild in background to prevent Render startup timeout
+    def run_rebuild():
+        from .neon_to_sqlite import rebuild_sqlite_from_neon
+        rebuild_sqlite_from_neon()
+    
+    import threading
+    threading.Thread(target=run_rebuild, daemon=True).start()
     
     from .gdrive_backup import periodic_gdrive_backup
     import asyncio
