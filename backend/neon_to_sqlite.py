@@ -20,12 +20,8 @@ def rebuild_sqlite_from_neon():
     backup_db = BackupSessionLocal()
 
     try:
-        # Step 1: Fetch all data from Neon DB
-        users = neon_db.query(User).all()
-        chats = neon_db.query(ChatHistory).all()
-        knowledge = neon_db.query(KnowledgeBase).all()
+        # Data will be fetched in batches during Step 3 to save memory.
 
-        print(f"Fetched from Neon: {len(users)} Users, {len(chats)} Chats, {len(knowledge)} Knowledge items.")
 
         # Step 2: Clear existing data in local SQLite (to prevent duplicates)
         backup_db.execute(text("DELETE FROM chat_history"))
@@ -33,12 +29,17 @@ def rebuild_sqlite_from_neon():
         backup_db.execute(text("DELETE FROM users"))
         backup_db.commit()
 
-        # Step 3: Insert everything into local SQLite
-        for u in users:
+        # Step 3: Insert everything into local SQLite (Iterate to save RAM)
+        print("Migrating Users...")
+        for u in neon_db.query(User).yield_per(10):
             backup_db.merge(u)
-        for c in chats:
+        
+        print("Migrating Chat History...")
+        for c in neon_db.query(ChatHistory).yield_per(20):
             backup_db.merge(c)
-        for k in knowledge:
+        
+        print("Migrating Knowledge Base...")
+        for k in neon_db.query(KnowledgeBase).yield_per(10):
             backup_db.merge(k)
         
         backup_db.commit()

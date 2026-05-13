@@ -65,7 +65,7 @@ class ResetPasswordRequest(BaseModel):
     new_password: str
 
 # --- DB & SERVICES ---
-from .research_chain import run_full_research
+# (AI imports moved inside endpoints to save memory)
 from .database import engine, Base, get_db, User, ChatHistory, KnowledgeBase, init_db, sync_to_local
 from .auth import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_access_token, ACCESS_TOKEN_EXPIRE_MINUTES, verify_google_token
 from .email_service import send_verification_email, send_reset_email
@@ -358,6 +358,9 @@ async def research(req: ResearchRequest, request: Request, user: Optional[User] 
 
         REQUEST_TIMESTAMPS.append(now)
         IP_REQUESTS[client_ip].append(now)
+        
+        # Lazy load heavy AI chain only when needed
+        from .research_chain import run_full_research
         output = await run_full_research(req.query, req.thread_id)
         res_text = output["report"]
         # Only save to knowledge base and file if query is energy-related
