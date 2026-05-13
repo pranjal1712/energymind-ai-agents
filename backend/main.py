@@ -113,15 +113,17 @@ app.add_middleware(
 
 @app.on_event("startup")
 async def startup_event():
-    init_db()
-    
-    # Run rebuild in background to prevent Render startup timeout
-    def run_rebuild():
-        from .neon_to_sqlite import rebuild_sqlite_from_neon
-        rebuild_sqlite_from_neon()
+    # Move EVERYTHING heavy to a background thread so the port opens INSTANTLY
+    def heavy_startup():
+        try:
+            init_db()
+            from .neon_to_sqlite import rebuild_sqlite_from_neon
+            rebuild_sqlite_from_neon()
+        except Exception as e:
+            print(f"Startup background error: {e}")
     
     import threading
-    threading.Thread(target=run_rebuild, daemon=True).start()
+    threading.Thread(target=heavy_startup, daemon=True).start()
     
     from .gdrive_backup import periodic_gdrive_backup
     import asyncio
