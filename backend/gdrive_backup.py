@@ -15,12 +15,25 @@ DB_FILE = os.path.join(os.path.dirname(os.path.dirname(__file__)), 'users_backup
 SCOPES = ['https://www.googleapis.com/auth/drive']
 
 def get_drive_service():
+    from google.oauth2 import service_account
+    import json
+    
+    service_account_info = os.getenv("GDRIVE_SERVICE_ACCOUNT_JSON")
+    
+    if service_account_info:
+        try:
+            info = json.loads(service_account_info)
+            creds = service_account.Credentials.from_service_account_info(info, scopes=SCOPES)
+            return build('drive', 'v3', credentials=creds)
+        except Exception as e:
+            print(f"ERROR: Failed to load Google Service Account from ENV: {e}")
+            return None
+
+    # Fallback to local files for development
     creds = None
-    # The file token.json stores the user's access and refresh tokens
     if os.path.exists(TOKEN_FILE):
         creds = Credentials.from_authorized_user_file(TOKEN_FILE, SCOPES)
     
-    # If there are no (valid) credentials available, let the user log in.
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             creds.refresh(Request())
@@ -31,13 +44,9 @@ def get_drive_service():
             print("\n" + "="*60)
             print("🚀 FIRST TIME SETUP: GOOGLE DRIVE AUTHORIZATION REQUIRED")
             print("="*60)
-            print("A browser window should open automatically to ask for permission.")
-            print("If it does not open, please look for a link below and click it.")
-            print("Login with your Google account and click 'Continue'.\n")
             flow = InstalledAppFlow.from_client_secrets_file(CREDENTIALS_FILE, SCOPES)
             creds = flow.run_local_server(port=0)
         
-        # Save the credentials for the next run
         with open(TOKEN_FILE, 'w') as token:
             token.write(creds.to_json())
 

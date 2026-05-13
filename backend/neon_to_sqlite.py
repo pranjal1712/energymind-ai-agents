@@ -8,8 +8,8 @@ def rebuild_sqlite_from_neon():
     the local SQLite database (users_backup.db).
     This only runs in production (Render) to avoid overwriting local developer data.
     """
-    if not os.environ.get("RENDER"):
-        print("DEBUG: Not running on Render. Skipping Neon-to-SQLite rebuild to protect local DB.")
+    if not os.environ.get("RENDER") and not os.environ.get("RAILWAY_ENVIRONMENT"):
+        print("DEBUG: Not running in production (Render/Railway). Skipping Neon-to-SQLite rebuild.")
         return
 
     print("\n" + "="*50)
