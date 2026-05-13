@@ -21,7 +21,7 @@ GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID")
 def verify_google_token(token: str):
     try:
         if not GOOGLE_CLIENT_ID:
-            print("ERROR: GOOGLE_CLIENT_ID is not set in environment.")
+            print("CRITICAL ERROR: GOOGLE_CLIENT_ID is missing from environment variables!")
             return None
             
         # Specify the GOOGLE_CLIENT_ID of the app that accesses the backend:
@@ -31,7 +31,7 @@ def verify_google_token(token: str):
         # userid = idinfo['sub']
         return idinfo
     except Exception as e:
-        print(f"Google token verification failed: {e}")
+        print(f"CRITICAL ERROR: Google token verification failed: {str(e)}")
         return None
 
 def verify_password(plain_password, hashed_password):
