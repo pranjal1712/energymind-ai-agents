@@ -87,6 +87,8 @@ def init_db():
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS verification_token VARCHAR",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token VARCHAR",
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMP",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS failed_login_attempts INTEGER DEFAULT 0",
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS lockout_until TIMESTAMP",
     ]
 
     # SQLite does NOT support IF NOT EXISTS for ALTER TABLE, use try/except instead
