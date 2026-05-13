@@ -105,7 +105,11 @@ app = FastAPI(title="Autonomous Energy Researcher API")
 from fastapi.middleware.cors import CORSMiddleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=[
+        "https://energymind-research-ai.vercel.app",
+        "https://energymind-ai.vercel.app",
+        "http://localhost:5173"
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
