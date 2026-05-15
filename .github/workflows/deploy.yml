@@ -37,12 +37,15 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
+            mkdir -p ~/energymind
             cd ~/energymind
-            # Pull the latest image
-            docker-compose pull
-            # Restart the services
-            docker-compose up -d
-            # Clean up old images
+            # Pull latest changes if it's a git repo, otherwise we'll rely on the image
+            if [ -d ".git" ]; then
+              git pull origin feature/react-frontend || echo "Git pull failed, continuing..."
+            fi
+            # Try to pull and up using both docker-compose and docker compose
+            (docker-compose pull && docker-compose up -d) || (docker compose pull && docker compose up -d)
+            # Clean up
             docker image prune -f
 
   deploy-instance-2:
@@ -56,10 +59,10 @@ jobs:
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY_2 }}
           script: |
+            mkdir -p ~/energymind
             cd ~/energymind
-            # Pull the latest image
-            docker-compose pull
-            # Restart the services
-            docker-compose up -d
-            # Clean up old images
+            if [ -d ".git" ]; then
+              git pull origin feature/react-frontend || echo "Git pull failed, continuing..."
+            fi
+            (docker-compose pull && docker-compose up -d) || (docker compose pull && docker compose up -d)
             docker image prune -f
