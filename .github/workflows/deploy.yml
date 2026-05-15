@@ -26,16 +26,35 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKER_USERNAME }}/energymind-api:latest
 
-  deploy:
+  deploy-instance-1:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
-      - name: Deploy to EC2 via SSH
+      - name: Deploy to Instance 1 via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ubuntu
           key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/energymind
+            # Pull the latest image
+            docker-compose pull
+            # Restart the services
+            docker-compose up -d
+            # Clean up old images
+            docker image prune -f
+
+  deploy-instance-2:
+    needs: build-and-push
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to Instance 2 via SSH
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.EC2_HOST_2 }}
+          username: ubuntu
+          key: ${{ secrets.EC2_SSH_KEY_2 }}
           script: |
             cd ~/energymind
             # Pull the latest image
