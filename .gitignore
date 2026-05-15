@@ -36,3 +36,5 @@ credentials.json
 users_backup.db
 
 token.json
+data/
+logs/
