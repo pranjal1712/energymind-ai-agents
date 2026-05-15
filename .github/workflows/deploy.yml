@@ -38,8 +38,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/energymind
-            # Create .env file from secret
-            echo "${{ secrets.ENV_FILE_CONTENT }}" > .env
             # Pull the latest image
             docker-compose pull
             # Restart the services
