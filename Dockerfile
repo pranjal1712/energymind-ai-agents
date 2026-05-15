@@ -24,4 +24,4 @@ EXPOSE 8000
 
 # Command to run the application using Gunicorn for production
 # Use $PORT so Render can assign the port dynamically
-CMD ["sh", "-c", "gunicorn -w 4 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:${PORT:-8000} --timeout 120"]
+CMD ["sh", "-c", "gunicorn -w 2 -k uvicorn.workers.UvicornWorker backend.main:app --bind 0.0.0.0:${PORT:-8000} --timeout 120"]
