@@ -2,6 +2,7 @@ version: '3.8'
 
 services:
   api:
+    image: ${DOCKER_USERNAME:-energymind-api}:latest
     build: .
     container_name: energymind-api
     restart: always
@@ -14,3 +15,13 @@ services:
       - ./logs:/app/logs
     environment:
       - PORT=8000
+
+  frontend:
+    image: ${DOCKER_USERNAME:-energymind-frontend}:latest
+    build: ./frontend
+    container_name: energymind-frontend
+    restart: always
+    ports:
+      - "80:80"
+    depends_on:
+      - api
