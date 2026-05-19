@@ -1,0 +1,17 @@
+.git
+.github
+venv
+frontend/node_modules
+frontend/dist
+backend/__pycache__
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+.env
+users.db
+users_backup.db
+data/
+logs/
+credentials.json
+token.json
