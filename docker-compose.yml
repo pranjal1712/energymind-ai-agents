@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   api:
-    image: ${DOCKER_USERNAME:-energymind-api}:latest
+    image: ${DOCKER_USERNAME:-pranjal1712}/energymind-api:latest
     build: .
     container_name: energymind-api
     restart: always
@@ -17,7 +17,7 @@ services:
       - PORT=8000
 
   frontend:
-    image: ${DOCKER_USERNAME:-energymind-frontend}:latest
+    image: ${DOCKER_USERNAME:-pranjal1712}/energymind-frontend:latest
     build: ./frontend
     container_name: energymind-frontend
     restart: always
