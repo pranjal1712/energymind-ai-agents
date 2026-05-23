@@ -21,8 +21,12 @@ load_dotenv()
 # =========================
 
 # Get keys from env (comma-separated: KEY1,KEY2,KEY3)
-GROQ_KEYS = os.getenv("GROQ_API_KEYS", os.getenv("GROQ_API_KEY", "")).split(",")
-GROQ_KEYS = [k.strip() for k in GROQ_KEYS if k.strip()]
+raw_keys = []
+for var_name in ["GROQ_API_KEYS", "GROQ_API_KEY"]:
+    val = os.getenv(var_name, "")
+    if val:
+        raw_keys.extend([k.strip() for k in val.split(",") if k.strip()])
+GROQ_KEYS = list(dict.fromkeys(raw_keys))
 
 # Global Semaphore to limit concurrent AI calls (Queuing)
 AI_SEMAPHORE = asyncio.Semaphore(5)
