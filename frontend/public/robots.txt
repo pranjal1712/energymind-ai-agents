@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: http://energymind2.duckdns.org/sitemap.xml
